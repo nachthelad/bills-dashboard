@@ -11,6 +11,7 @@ import {
   serializeSnapshot,
   toIsoDateTime,
 } from "@/lib/server/document-serializer";
+import { sortExpenseEntriesForDisplay } from "@/lib/server/expense-sort";
 
 export async function GET(request: NextRequest) {
   const log = createRequestLogger({
@@ -25,9 +26,9 @@ export async function GET(request: NextRequest) {
       .where("userId", "==", uid)
       .get();
 
-    const entries = snapshot.docs
-      .map(serializeExpenseDoc)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const entries = sortExpenseEntriesForDisplay(
+      snapshot.docs.map(serializeExpenseDoc)
+    );
 
     return NextResponse.json({ entries });
   } catch (error) {
@@ -121,6 +122,7 @@ function serializeExpenseDoc(doc: DocumentSnapshot) {
         ? raw.category
         : "Otros",
     date: toIsoDateTime(raw.date, fallbackDate) ?? fallbackDate,
+    createdAt: toIsoDateTime(raw.createdAt),
     currency:
       typeof raw.currency === "string" && raw.currency.trim().length > 0
         ? raw.currency
