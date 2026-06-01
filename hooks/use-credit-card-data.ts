@@ -1,0 +1,99 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+
+import { useAuth } from "@/lib/auth-context";
+import {
+  fetchCreditCardCycles,
+  fetchCreditCardPurchases,
+  fetchCreditCards,
+} from "@/lib/credit-cards-client";
+import type {
+  CreditCard,
+  CreditCardCycle,
+  CreditCardPurchase,
+} from "@/lib/credit-card-utils";
+
+type BinanceRate = {
+  price: number;
+  updatedAt: string;
+};
+
+export function useCreditCardData() {
+  const { user } = useAuth();
+  const [cards, setCards] = useState<CreditCard[]>([]);
+  const [cycles, setCycles] = useState<CreditCardCycle[]>([]);
+  const [purchases, setPurchases] = useState<CreditCardPurchase[]>([]);
+  const [rate, setRate] = useState<BinanceRate | null>(null);
+  const [rateLoading, setRateLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const getToken = useCallback(async () => {
+    if (!user) throw new Error("Iniciá sesión para continuar.");
+    return user.getIdToken();
+  }, [user]);
+
+  const loadData = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const token = await user.getIdToken();
+      const [nextCards, nextCycles, nextPurchases] = await Promise.all([
+        fetchCreditCards(token),
+        fetchCreditCardCycles(token),
+        fetchCreditCardPurchases(token),
+      ]);
+      setCards(nextCards);
+      setCycles(nextCycles);
+      setPurchases(nextPurchases);
+      setError(null);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "No se pudo cargar la información."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const refreshRate = useCallback(async () => {
+    setRateLoading(true);
+    try {
+      const response = await fetch("/api/binance-rate");
+      if (!response.ok) throw new Error("Rate unavailable");
+      const data = await response.json();
+      if (typeof data.price !== "number" || data.price <= 0) {
+        throw new Error("Invalid rate");
+      }
+      setRate({ price: data.price, updatedAt: data.updatedAt });
+    } catch {
+      setRate(null);
+    } finally {
+      setRateLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    refreshRate();
+  }, [refreshRate]);
+
+  return {
+    cards,
+    cycles,
+    purchases,
+    rate,
+    rateLoading,
+    loading,
+    error,
+    getToken,
+    loadData,
+    refreshRate,
+  };
+}
