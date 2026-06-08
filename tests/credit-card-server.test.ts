@@ -70,3 +70,17 @@ test("parsePurchaseInput derives the first period from a historical purchase mon
     "2026-02"
   );
 });
+
+test("parsePurchaseInput accepts Argentine formatted purchase amounts", () => {
+  assert.equal(
+    parsePurchaseInput({
+      cardId: "visa",
+      name: "Compra resumen",
+      purchaseDate: "2026-06-01",
+      totalAmount: "18.160,06",
+      currency: "ARS",
+      installments: 1,
+    }).totalAmount,
+    18160.06
+  );
+});

@@ -1,5 +1,6 @@
 import { isoToDate, toIsoDate } from "@/lib/date-picker";
 import type { CreditCardCurrency } from "@/lib/credit-card-utils";
+import { parseAmountInput } from "@/lib/amount-parser";
 
 export type ParsedCreditCardStatementPurchase = {
   sourceLine: string;
@@ -115,7 +116,7 @@ function parseStatementDate(day: string, month: string, year: string) {
 }
 
 function parseArgentineAmount(value: string) {
-  const amount = Number(value.replace(/\./g, "").replace(",", "."));
+  const amount = parseAmountInput(value);
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error("El importe debe ser mayor a cero.");
   }

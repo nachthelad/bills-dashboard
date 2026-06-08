@@ -40,6 +40,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { DatePickerPopover } from "@/components/ui/date-picker-popover";
 import { getLocalTodayIso, isoToDate, toIsoDate } from "@/lib/date-picker";
+import { parseAmountInput } from "@/lib/amount-parser";
 
 interface AddExpenseModalProps {
   onSuccess: () => void;
@@ -209,7 +210,7 @@ export function AddExpenseModal({
       const payload = {
         date: parsedDate,
         description: values.description.trim(),
-        amount: Number.parseFloat(values.amount),
+        amount: parseAmountInput(values.amount),
         currency: values.currency,
         arsRate:
           values.currency === "USD" && values.arsRate
@@ -250,7 +251,7 @@ export function AddExpenseModal({
   const amountField = register("amount", {
     validate: (value) => {
       if (!value.trim()) return "El monto es obligatorio";
-      return Number.parseFloat(value) > 0 || "El monto debe ser mayor a 0";
+      return parseAmountInput(value) > 0 || "El monto debe ser mayor a 0";
     },
   });
   const errorMessage =
@@ -326,9 +327,9 @@ export function AddExpenseModal({
           </Label>
           <Input
             id="exp-amount"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
+            type="text"
+            inputMode="decimal"
+            placeholder="0,00"
             {...amountField}
             value={formData.amount ?? ""}
             onChange={(e) => {

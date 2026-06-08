@@ -11,6 +11,7 @@ import {
   type CreditCardPurchase,
   type CreditCardStatus,
 } from "@/lib/credit-card-utils";
+import { parseAmountInput } from "@/lib/amount-parser";
 import {
   serializeSnapshot,
   toIsoDateTime,
@@ -68,7 +69,7 @@ export function parsePurchaseInput(body: Record<string, unknown>) {
   const cardId = parseRequiredString(body.cardId, "Card required");
   const name = parseRequiredString(body.name, "Purchase name required");
   const purchaseDate = parseIsoDay(body.purchaseDate, "Invalid purchase date");
-  const totalAmount = Number(body.totalAmount);
+  const totalAmount = parseAmountInput(body.totalAmount);
   const installments = Number(body.installments);
   const currency = parseCurrency(body.currency);
   const firstPeriodMonth = getFirstPeriodMonthFromPurchaseDate(purchaseDate);
