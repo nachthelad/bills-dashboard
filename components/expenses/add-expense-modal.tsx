@@ -18,14 +18,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, Plus, X } from "lucide-react";
@@ -38,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { DatePickerPopover } from "@/components/ui/date-picker-popover";
 import { getLocalTodayIso, isoToDate, toIsoDate } from "@/lib/date-picker";
 import { parseAmountInput } from "@/lib/amount-parser";
@@ -508,9 +501,14 @@ export function AddExpenseModal({
 
   if (isMobile) {
     return (
-      <Sheet open={open} onOpenChange={handleOpenChange}>
-        {!isControlled && (
-          <SheetTrigger asChild>
+      <MobileDrawer
+        open={open}
+        onOpenChange={handleOpenChange}
+        title={title}
+        description={description}
+        bodyClassName="pr-1"
+        trigger={
+          !isControlled ? (
             <Button
               size="icon"
               className="bg-emerald-500 text-slate-900 hover:bg-emerald-400"
@@ -519,18 +517,11 @@ export function AddExpenseModal({
             >
               <Plus className="w-4 h-4" />
             </Button>
-          </SheetTrigger>
-        )}
-        <SheetContent side="bottom" className="px-4 pt-6 pb-8 bg-card border-border rounded-t-[20px] focus:outline-none">
-          <SheetHeader className="text-left mb-4">
-            <SheetTitle className="text-xl font-bold">{title}</SheetTitle>
-            <SheetDescription>{description}</SheetDescription>
-          </SheetHeader>
-          <div className="max-h-[80vh] overflow-y-auto pr-1">
-            {formContent}
-          </div>
-        </SheetContent>
-      </Sheet>
+          ) : undefined
+        }
+      >
+        {formContent}
+      </MobileDrawer>
     );
   }
 
