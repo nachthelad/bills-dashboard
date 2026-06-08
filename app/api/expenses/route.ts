@@ -12,6 +12,7 @@ import {
   toIsoDateTime,
 } from "@/lib/server/document-serializer";
 import { sortExpenseEntriesForDisplay } from "@/lib/server/expense-sort";
+import { parseAmountInput } from "@/lib/amount-parser";
 
 export async function GET(request: NextRequest) {
   const log = createRequestLogger({
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const description = (body.description ?? "").toString().trim() || "Sin descripción";
-    const amount = Number.parseFloat(body.amount);
+    const amount = parseAmountInput(body.amount);
     const paymentMethod = (body.paymentMethod ?? "Débito").toString().trim();
     const category = (body.category ?? "Otros").toString().trim();
     const dateString = body.date as string | undefined;

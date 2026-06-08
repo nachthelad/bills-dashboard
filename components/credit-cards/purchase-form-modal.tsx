@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DatePickerPopover } from "@/components/ui/date-picker-popover";
@@ -25,6 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { parseCreditCardStatement } from "@/lib/credit-card-statement-parser";
+import { parseAmountInput } from "@/lib/amount-parser";
 import { getLocalTodayIso } from "@/lib/date-picker";
 import { formatAmount } from "@/lib/format-currency";
 import { formatDate } from "@/lib/utils";
@@ -73,6 +74,7 @@ export function PurchaseFormModal({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const cardId = purchase?.cardId ?? initialCardId ?? cards[0]?.id ?? "";
@@ -87,9 +89,8 @@ export function PurchaseFormModal({
     setError(null);
   }, [cards, initialCardId, open, purchase]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const totalAmount = Number(form.totalAmount);
+  const savePurchase = async (keepOpen: boolean) => {
+    const totalAmount = parseAmountInput(form.totalAmount);
     const installments = Number(form.installments);
     if (
       !form.cardId ||
@@ -115,7 +116,16 @@ export function PurchaseFormModal({
         currency: form.currency,
         installments,
       });
-      onOpenChange(false);
+      if (keepOpen) {
+        setForm((current) => ({
+          ...current,
+          name: "",
+          totalAmount: "",
+        }));
+        setTimeout(() => nameRef.current?.focus(), 0);
+      } else {
+        onOpenChange(false);
+      }
     } catch (saveError) {
       setError(
         saveError instanceof Error ? saveError.message : "No se pudo guardar."
@@ -123,6 +133,11 @@ export function PurchaseFormModal({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    await savePurchase(false);
   };
 
   return (
@@ -187,6 +202,7 @@ export function PurchaseFormModal({
           <Label htmlFor="purchase-name">Nombre</Label>
           <Input
             id="purchase-name"
+            ref={nameRef}
             value={form.name}
             onChange={(event) =>
               setForm((current) => ({ ...current, name: event.target.value }))
@@ -218,9 +234,8 @@ export function PurchaseFormModal({
             <Label htmlFor="purchase-amount">Monto total</Label>
             <Input
               id="purchase-amount"
-              type="number"
-              step="0.01"
-              min="0.01"
+              type="text"
+              inputMode="decimal"
               value={form.totalAmount}
               onChange={(event) =>
                 setForm((current) => ({
@@ -257,8 +272,18 @@ export function PurchaseFormModal({
           >
             Cancelar
           </Button>
+          {!purchase ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={loading || cards.length === 0}
+              onClick={() => savePurchase(true)}
+            >
+              Guardar y añadir otro
+            </Button>
+          ) : null}
           <Button type="submit" disabled={loading || cards.length === 0}>
-            {loading ? "Guardando..." : "Guardar compra"}
+            {loading ? "Guardando..." : "Guardar"}
           </Button>
         </div>
           </form>
