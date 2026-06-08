@@ -11,6 +11,7 @@ import {
   serializeSnapshot,
   toIsoDateTime,
 } from "@/lib/server/document-serializer";
+import { parseAmountInput } from "@/lib/amount-parser";
 
 export async function GET(request: NextRequest) {
   const baseLogger = createRequestLogger({
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const name = (body.name ?? "").toString().trim() || "Unnamed";
-    const amount = Number.parseFloat(body.amount);
+    const amount = parseAmountInput(body.amount);
     const source = (body.source ?? "").toString().trim() || "Other";
     const dateString = body.date as string | undefined;
     const currency = ["ARS", "USD"].includes(body.currency) ? body.currency : "ARS";

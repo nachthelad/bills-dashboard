@@ -12,14 +12,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
@@ -31,8 +23,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { DatePickerPopover } from "@/components/ui/date-picker-popover";
 import { getLocalTodayIso, isoToDate } from "@/lib/date-picker";
+import { parseAmountInput } from "@/lib/amount-parser";
 
 interface AddIncomeModalProps {
   onSuccess: () => void;
@@ -74,7 +68,8 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
       nameRef.current?.focus();
       return;
     }
-    if (!formData.amount || Number.parseFloat(formData.amount) <= 0) {
+    const amount = parseAmountInput(formData.amount);
+    if (!formData.amount || !Number.isFinite(amount) || amount <= 0) {
       setError("El monto debe ser mayor a 0");
       return;
     }
@@ -91,7 +86,7 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
       const token = await user.getIdToken();
       await addIncomeEntry(token, {
         name: formData.name,
-        amount: Number.parseFloat(formData.amount),
+        amount,
         source: formData.source,
         currency: formData.currency,
         date: parsedDate,
@@ -193,9 +188,9 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
           </Label>
           <Input
             id="inc-amount"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
+            type="text"
+            inputMode="decimal"
+            placeholder="0,00"
             value={formData.amount}
             onChange={(e) =>
               setFormData({ ...formData, amount: e.target.value })
@@ -231,8 +226,13 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
 
   if (isMobile) {
     return (
-      <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetTrigger asChild>
+      <MobileDrawer
+        open={open}
+        onOpenChange={handleOpenChange}
+        title={title}
+        description={description}
+        bodyClassName="pr-1"
+        trigger={
           <Button
             size="icon"
             className="bg-emerald-500 text-slate-900 hover:bg-emerald-400"
@@ -241,17 +241,10 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
           >
             <Plus className="w-4 h-4" />
           </Button>
-        </SheetTrigger>
-        <SheetContent side="bottom" className="px-4 pt-6 pb-8 bg-card border-border rounded-t-[20px] focus:outline-none">
-          <SheetHeader className="text-left mb-4">
-            <SheetTitle className="text-xl font-bold">{title}</SheetTitle>
-            <SheetDescription>{description}</SheetDescription>
-          </SheetHeader>
-          <div className="max-h-[80vh] overflow-y-auto pr-1">
-            {formContent}
-          </div>
-        </SheetContent>
-      </Sheet>
+        }
+      >
+        {formContent}
+      </MobileDrawer>
     );
   }
 

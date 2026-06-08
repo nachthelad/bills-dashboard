@@ -124,6 +124,11 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
     ? projections
     : projections.filter((projection) => !isPastProjection(projection));
   const latestCycle = cardCycles[0] ?? null;
+  const toggleProjection = (projectionKey: string) => {
+    setExpandedProjection((current) =>
+      current === projectionKey ? null : projectionKey
+    );
+  };
 
   const handleSaveCycle = async (value: CycleFormValue) => {
     const token = await getToken();
@@ -206,55 +211,58 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-4">
+      <header>
         <Button variant="ghost" className="self-start" asChild>
           <Link href="/credit-cards">
             <ArrowLeft data-icon="inline-start" />
             Volver a tarjetas
           </Link>
         </Button>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold">{card.name}</h1>
-              <AmountVisibilityToggle />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge
-                variant={card.status === "active" ? "secondary" : "outline"}
-              >
-                {card.status === "active" ? "Activa" : "Archivada"}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                Seguimiento manual de consumos y cuotas.
-              </span>
-            </div>
-          </div>
-          {card.status === "active" ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEditingCycle(null);
-                  setCycleModalOpen(true);
-                }}
-              >
-                <CalendarClock data-icon="inline-start" />
-                Agregar período
-              </Button>
-              <Button
-                onClick={() => {
-                  setEditingPurchase(null);
-                  setPurchaseModalOpen(true);
-                }}
-              >
-                <Plus data-icon="inline-start" />
-                Agregar compra
-              </Button>
-            </div>
-          ) : null}
-        </div>
       </header>
+
+      <div className="sticky top-0 z-20 -mx-6 flex items-start justify-between gap-3 bg-background/95 px-6 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-3xl font-bold">{card.name}</h1>
+            <AmountVisibilityToggle />
+          </div>
+          <Badge
+            className="self-start"
+            variant={card.status === "active" ? "secondary" : "outline"}
+          >
+            {card.status === "active" ? "Activa" : "Archivada"}
+          </Badge>
+        </div>
+        {card.status === "active" ? (
+          <div className="flex shrink-0 gap-2">
+            <Button
+              variant="outline"
+              className="h-9 w-9 px-0 sm:w-auto sm:px-3"
+              aria-label="Agregar período"
+              title="Agregar período"
+              onClick={() => {
+                setEditingCycle(null);
+                setCycleModalOpen(true);
+              }}
+            >
+              <CalendarClock />
+              <span className="hidden sm:inline">Agregar período</span>
+            </Button>
+            <Button
+              className="h-9 w-9 border border-primary px-0 sm:w-auto sm:px-3"
+              aria-label="Agregar compra"
+              title="Agregar compra"
+              onClick={() => {
+                setEditingPurchase(null);
+                setPurchaseModalOpen(true);
+              }}
+            >
+              <Plus />
+              <span className="hidden sm:inline">Agregar compra</span>
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
@@ -309,6 +317,7 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
               <TableBody>
                 {visibleProjections.map((projection) => {
                   const projectionKey = `${projection.cardId}_${projection.periodMonth}`;
+                  const projectionDetailsId = `projection-details-${projection.cardId}-${projection.periodMonth}`;
                   const expanded = expandedProjection === projectionKey;
                   const estimatedArs =
                     projection.totals.ARS +
@@ -316,25 +325,28 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
 
                   return (
                     <Fragment key={projectionKey}>
-                      <TableRow>
+                      <TableRow
+                        className="cursor-pointer"
+                        onClick={() => toggleProjection(projectionKey)}
+                      >
                         <TableCell className="whitespace-normal">
                           <div className="flex items-start gap-1">
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon-sm"
-                              className="-ml-2 shrink-0"
+                              className="-ml-2 shrink-0 hover:bg-transparent hover:text-inherit dark:hover:bg-transparent"
                               aria-label={
                                 expanded
                                   ? "Ocultar detalle de cuotas"
                                   : "Mostrar detalle de cuotas"
                               }
                               aria-expanded={expanded}
-                              onClick={() =>
-                                setExpandedProjection(
-                                  expanded ? null : projectionKey
-                                )
-                              }
+                              aria-controls={projectionDetailsId}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleProjection(projectionKey);
+                              }}
                             >
                               <ChevronRight
                                 className={
@@ -408,7 +420,10 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
                         </TableCell>
                       </TableRow>
                       {expanded ? (
-                        <TableRow className="hover:bg-transparent">
+                        <TableRow
+                          id={projectionDetailsId}
+                          className="hover:bg-transparent"
+                        >
                           <TableCell
                             colSpan={6}
                             className="bg-muted/20 p-0 whitespace-normal"

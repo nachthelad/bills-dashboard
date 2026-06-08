@@ -9,13 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 type ResponsiveModalProps = {
@@ -39,18 +33,14 @@ export function ResponsiveModal({
 
   if (isMobile) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent
-          side="bottom"
-          className="max-h-[calc(100vh-1rem)] overflow-y-auto rounded-t-2xl border-border bg-card px-4 pb-8 pt-6"
-        >
-          <SheetHeader className="px-0 text-left">
-            <SheetTitle className="text-xl">{title}</SheetTitle>
-            <SheetDescription>{description}</SheetDescription>
-          </SheetHeader>
-          {children}
-        </SheetContent>
-      </Sheet>
+      <MobileDrawer
+        open={open}
+        onOpenChange={onOpenChange}
+        title={title}
+        description={description}
+      >
+        {children}
+      </MobileDrawer>
     );
   }
 

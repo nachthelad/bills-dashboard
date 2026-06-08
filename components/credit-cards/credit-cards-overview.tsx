@@ -169,28 +169,31 @@ export function CreditCardsOverview() {
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold">Tarjetas</h1>
-            <AmountVisibilityToggle />
-          </div>
-          <p className="max-w-2xl text-muted-foreground">
-            Anticipá próximos vencimientos y cuotas futuras sin mezclar estos
-            consumos con tus gastos diarios.
-          </p>
+      <header className="sticky top-0 z-20 -mx-6 flex items-center justify-between gap-3 bg-background/95 px-6 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="truncate text-3xl font-bold">Tarjetas</h1>
+          <AmountVisibilityToggle />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setManagerOpen(true)}>
-            <Settings2 data-icon="inline-start" />
-            Administrar
+        <div className="flex shrink-0 gap-2">
+          <Button
+            variant="outline"
+            className="h-9 w-9 px-0 sm:w-auto sm:px-3"
+            aria-label="Administrar tarjetas"
+            title="Administrar tarjetas"
+            onClick={() => setManagerOpen(true)}
+          >
+            <Settings2 />
+            <span className="hidden sm:inline">Administrar</span>
           </Button>
           <Button
+            className="h-9 w-9 border border-primary px-0 sm:w-auto sm:px-3"
+            aria-label="Agregar compra"
+            title="Agregar compra"
             onClick={() => setPurchaseModalOpen(true)}
             disabled={activeCards.length === 0}
           >
-            <Plus data-icon="inline-start" />
-            Agregar compra
+            <Plus />
+            <span className="hidden sm:inline">Agregar compra</span>
           </Button>
         </div>
       </header>
