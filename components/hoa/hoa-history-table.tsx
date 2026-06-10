@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import { buildRubroKey } from "@/lib/hoaComparison";
 
 interface HoaHistoryTableProps {
@@ -34,6 +34,21 @@ type HistoryRow = {
 
 export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps) {
   const [sortBy, setSortBy] = useState<"category" | "difference">("category");
+  const [collapsedRubros, setCollapsedRubros] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  const toggleRubro = (key: string) => {
+    setCollapsedRubros((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
 
   const formatCurrency = (value: number | null | undefined) => {
     if (value === null || value === undefined) return "-";
@@ -132,6 +147,9 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
     const ordered: HistoryRow[] = [];
     for (const rubroRow of rubroRows) {
       ordered.push(rubroRow);
+      if (collapsedRubros.has(rubroRow.key)) {
+        continue;
+      }
       const childRows = rowOrder
         .map((key) => rows.get(key))
         .filter(
@@ -143,7 +161,7 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
       ordered.push(...childRows);
     }
     return ordered;
-  }, [rowOrder, rows, sortBy, orderedSummaries]);
+  }, [rowOrder, rows, sortBy, orderedSummaries, collapsedRubros]);
 
   if (summaries.length === 0) {
     return (
@@ -206,20 +224,58 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
           </TableHeader>
           <TableBody>
             {sortedRows.map((row) => {
+              const canToggle = row.type === "rubro" && row.itemCount > 0;
+              const isCollapsed = collapsedRubros.has(row.key);
               return (
                 <TableRow
                   key={row.key}
-                  className={row.type === "item" ? "bg-muted/15 hover:bg-muted/30" : ""}
+                  role={canToggle ? "button" : undefined}
+                  tabIndex={canToggle ? 0 : undefined}
+                  aria-expanded={canToggle ? !isCollapsed : undefined}
+                  onClick={canToggle ? () => toggleRubro(row.key) : undefined}
+                  onKeyDown={
+                    canToggle
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleRubro(row.key);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={
+                    row.type === "item"
+                      ? "bg-muted/15 hover:bg-muted/30"
+                      : canToggle
+                        ? "cursor-pointer"
+                        : ""
+                  }
                 >
                   <TableCell className="sticky left-0 z-10 bg-card">
                     <div
                       className={
                         row.type === "item"
                           ? "max-w-[360px] pl-5 text-sm text-foreground"
-                          : "max-w-[360px] font-medium text-foreground"
+                          : "flex max-w-[360px] items-start gap-2 font-medium text-foreground"
                       }
                     >
-                      <span className={row.type === "item" ? "whitespace-normal" : "whitespace-normal"}>
+                      {canToggle && (
+                        <span
+                          aria-hidden="true"
+                          className="-ml-1 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground"
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </span>
+                      )}
+                      <span
+                        className={
+                          row.type === "item" ? "whitespace-normal" : "whitespace-normal"
+                        }
+                      >
                         {row.label}
                       </span>
                     </div>
@@ -233,7 +289,9 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
                         {row.itemCount} detalle{row.itemCount !== 1 ? "s" : ""}
                       </div>
                     )}
-                    {row.rubroNumber !== null && row.rubroNumber !== undefined && (
+                    {row.type === "rubro" &&
+                      row.rubroNumber !== null &&
+                      row.rubroNumber !== undefined && (
                       <div className="text-xs text-muted-foreground">
                         Categoría {row.rubroNumber}
                       </div>
