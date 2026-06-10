@@ -233,7 +233,9 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
                         {row.itemCount} detalle{row.itemCount !== 1 ? "s" : ""}
                       </div>
                     )}
-                    {row.rubroNumber !== null && row.rubroNumber !== undefined && (
+                    {row.type === "rubro" &&
+                      row.rubroNumber !== null &&
+                      row.rubroNumber !== undefined && (
                       <div className="text-xs text-muted-foreground">
                         Categoría {row.rubroNumber}
                       </div>
