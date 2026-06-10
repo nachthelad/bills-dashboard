@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import { buildRubroKey } from "@/lib/hoaComparison";
 
 interface HoaHistoryTableProps {
@@ -34,6 +34,21 @@ type HistoryRow = {
 
 export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps) {
   const [sortBy, setSortBy] = useState<"category" | "difference">("category");
+  const [collapsedRubros, setCollapsedRubros] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  const toggleRubro = (key: string) => {
+    setCollapsedRubros((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
 
   const formatCurrency = (value: number | null | undefined) => {
     if (value === null || value === undefined) return "-";
@@ -132,6 +147,9 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
     const ordered: HistoryRow[] = [];
     for (const rubroRow of rubroRows) {
       ordered.push(rubroRow);
+      if (collapsedRubros.has(rubroRow.key)) {
+        continue;
+      }
       const childRows = rowOrder
         .map((key) => rows.get(key))
         .filter(
@@ -143,7 +161,7 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
       ordered.push(...childRows);
     }
     return ordered;
-  }, [rowOrder, rows, sortBy, orderedSummaries]);
+  }, [rowOrder, rows, sortBy, orderedSummaries, collapsedRubros]);
 
   if (summaries.length === 0) {
     return (
@@ -206,6 +224,7 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
           </TableHeader>
           <TableBody>
             {sortedRows.map((row) => {
+              const isCollapsed = collapsedRubros.has(row.key);
               return (
                 <TableRow
                   key={row.key}
@@ -216,10 +235,35 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
                       className={
                         row.type === "item"
                           ? "max-w-[360px] pl-5 text-sm text-foreground"
-                          : "max-w-[360px] font-medium text-foreground"
+                          : "flex max-w-[360px] items-start gap-2 font-medium text-foreground"
                       }
                     >
-                      <span className={row.type === "item" ? "whitespace-normal" : "whitespace-normal"}>
+                      {row.type === "rubro" && row.itemCount > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleRubro(row.key)}
+                          aria-label={
+                            isCollapsed
+                              ? `Expandir ${row.label}`
+                              : `Retraer ${row.label}`
+                          }
+                          aria-expanded={!isCollapsed}
+                          className="-ml-1 mt-0.5 h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                      <span
+                        className={
+                          row.type === "item" ? "whitespace-normal" : "whitespace-normal"
+                        }
+                      >
                         {row.label}
                       </span>
                     </div>
