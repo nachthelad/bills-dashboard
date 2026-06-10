@@ -224,11 +224,32 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
           </TableHeader>
           <TableBody>
             {sortedRows.map((row) => {
+              const canToggle = row.type === "rubro" && row.itemCount > 0;
               const isCollapsed = collapsedRubros.has(row.key);
               return (
                 <TableRow
                   key={row.key}
-                  className={row.type === "item" ? "bg-muted/15 hover:bg-muted/30" : ""}
+                  role={canToggle ? "button" : undefined}
+                  tabIndex={canToggle ? 0 : undefined}
+                  aria-expanded={canToggle ? !isCollapsed : undefined}
+                  onClick={canToggle ? () => toggleRubro(row.key) : undefined}
+                  onKeyDown={
+                    canToggle
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleRubro(row.key);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={
+                    row.type === "item"
+                      ? "bg-muted/15 hover:bg-muted/30"
+                      : canToggle
+                        ? "cursor-pointer"
+                        : ""
+                  }
                 >
                   <TableCell className="sticky left-0 z-10 bg-card">
                     <div
@@ -238,26 +259,17 @@ export function HoaHistoryTable({ summaries, showAmounts }: HoaHistoryTableProps
                           : "flex max-w-[360px] items-start gap-2 font-medium text-foreground"
                       }
                     >
-                      {row.type === "rubro" && row.itemCount > 0 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => toggleRubro(row.key)}
-                          aria-label={
-                            isCollapsed
-                              ? `Expandir ${row.label}`
-                              : `Retraer ${row.label}`
-                          }
-                          aria-expanded={!isCollapsed}
-                          className="-ml-1 mt-0.5 h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+                      {canToggle && (
+                        <span
+                          aria-hidden="true"
+                          className="-ml-1 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground"
                         >
                           {isCollapsed ? (
                             <ChevronRight className="h-4 w-4" />
                           ) : (
                             <ChevronDown className="h-4 w-4" />
                           )}
-                        </Button>
+                        </span>
                       )}
                       <span
                         className={
