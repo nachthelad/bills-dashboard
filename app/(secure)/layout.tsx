@@ -24,8 +24,8 @@ export default async function ProtectedLayout({
     <AmountVisibilityProvider>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset>
-          <main className="flex-1 p-6 pb-24 lg:pb-6">
+        <SidebarInset className="min-w-0 overflow-x-hidden">
+          <main className="min-w-0 max-w-full flex-1 p-6 pb-24 lg:pb-6">
             <ProtectedRoute>{children}</ProtectedRoute>
           </main>
         </SidebarInset>

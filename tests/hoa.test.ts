@@ -15,7 +15,18 @@ test("normalizeHoaDetails coerces rubro totals and builds period key", () => {
     periodLabel: "03/2024",
     totalToPayUnit: "2500.55",
     rubros: [
-      { rubroNumber: "1", label: "Gastos", total: "1500.10" },
+      {
+        rubroNumber: "1",
+        label: "Gastos",
+        total: "1500.10",
+        items: [
+          {
+            label: "Consultora Cattaneo",
+            detail: "Abono por ley 19587 - mes anterior",
+            amount: "20000.00",
+          },
+        ],
+      },
       { rubroNumber: 2, label: "Reserva", total: "invalid" },
     ],
   })
@@ -25,7 +36,10 @@ test("normalizeHoaDetails coerces rubro totals and builds period key", () => {
   assert.equal(normalized?.rubros.length, 2)
   assert.equal(normalized?.rubros[0]?.rubroNumber, 1)
   assert.equal(normalized?.rubros[0]?.total, 1500.1)
+  assert.equal(normalized?.rubros[0]?.items.length, 1)
+  assert.equal(normalized?.rubros[0]?.items[0]?.amount, 20000)
   assert.equal(normalized?.rubros[1]?.total, null)
+  assert.deepEqual(normalized?.rubros[1]?.items, [])
   assert.equal(normalized?.totalToPayUnit, 2500.55)
 })
 
@@ -46,9 +60,9 @@ test("calculateHoaTotals ignores null values and reports counts", () => {
   assert.deepEqual(totalsEmpty, { rubrosTotal: null, rubrosWithTotals: 0 })
 
   const totals = calculateHoaTotals([
-    { rubroNumber: 1, label: "Gastos", total: 1200 },
-    { rubroNumber: 2, label: "Limpieza", total: null },
-    { rubroNumber: 3, label: "Fondo", total: 300.5 },
+    { rubroNumber: 1, label: "Gastos", total: 1200, items: [] },
+    { rubroNumber: 2, label: "Limpieza", total: null, items: [] },
+    { rubroNumber: 3, label: "Fondo", total: 300.5, items: [] },
   ])
 
   assert.equal(totals.rubrosTotal, 1500.5)

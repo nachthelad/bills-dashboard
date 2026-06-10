@@ -7,7 +7,8 @@
   - `unitCode`, `unitLabel`, `ownerName`
   - `periodLabel`, `periodYear`, `periodMonth`
   - `firstDueAmount`, `secondDueAmount`, `totalToPayUnit`, `totalBuildingExpenses`
-  - `rubros`: array of `{ rubroNumber, label, total }`
+  - `rubros`: array of `{ rubroNumber, label, total, items }`
+    - `items`: optional detail rows inside the rubro, each as `{ label, detail, amount }`
 - If any of the critical values (unit, period or total) cannot be parsed the document still becomes `category = "hoa"` but `hoaDetails` is set to `null` so that Firestore data stays coherent.
 
 ## Firestore writes
@@ -19,7 +20,10 @@
     unitCode, unitLabel, ownerName,
     periodKey, periodYear, periodMonth, periodLabel,
     totalToPayUnit, totalBuildingExpenses,
-    rubros: Array<{ rubroNumber, label, total }>,
+    rubros: Array<{
+      rubroNumber, label, total,
+      items: Array<{ label, detail, amount }>
+    }>,
     createdAt, updatedAt
   }
   ```

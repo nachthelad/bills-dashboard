@@ -1,4 +1,4 @@
-import type { HoaDetails, HoaRubro } from "@/types/hoa";
+import type { HoaDetails, HoaRubro, HoaRubroItem } from "@/types/hoa";
 import { logger as baseLogger, type Logger } from "@/lib/server/logger";
 import { z } from "zod";
 
@@ -17,10 +17,17 @@ export type BillingParseResult = {
   foreignAmountUSD: number | null;
 };
 
+const hoaRubroItemSchema = z.object({
+  label: z.string().nullable(),
+  detail: z.string().nullable(),
+  amount: z.number().nullable(),
+});
+
 const hoaRubroSchema = z.object({
   rubroNumber: z.number().nullable(),
   label: z.string().nullable(),
   total: z.number().nullable(),
+  items: z.array(hoaRubroItemSchema).nullable().optional(),
 });
 
 const hoaDetailsSchema = z
@@ -119,8 +126,27 @@ const BILLING_SCHEMA_BODY = {
                     },
                     label: { anyOf: [{ type: "string" }, { type: "null" }] },
                     total: { anyOf: [{ type: "number" }, { type: "null" }] },
+                    items: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        additionalProperties: false,
+                        properties: {
+                          label: {
+                            anyOf: [{ type: "string" }, { type: "null" }],
+                          },
+                          detail: {
+                            anyOf: [{ type: "string" }, { type: "null" }],
+                          },
+                          amount: {
+                            anyOf: [{ type: "number" }, { type: "null" }],
+                          },
+                        },
+                        required: ["label", "detail", "amount"],
+                      },
+                    },
                   },
-                  required: ["rubroNumber", "label", "total"],
+                  required: ["rubroNumber", "label", "total", "items"],
                 },
               },
             },
@@ -171,6 +197,8 @@ CRITICAL: For HOA (Expensas) bills, you MUST distinguish between the individual 
 - 'totalAmount': Set this to the INDIVIDUAL amount the unit owner must pay (e.g., 'Total a Pagar', 'Total Unidad', 'Current Month Total').
 - 'hoaDetails.totalToPayUnit': This MUST match the individual share.
 - 'hoaDetails.totalBuildingExpenses': Set this to the larger collective total of the entire building.
+- 'hoaDetails.rubros': Extract each expense category/rubro total.
+- 'hoaDetails.rubros[].items': When a rubro lists individual charges, extract each line item with a concise provider/service label, the remaining description in detail, and the line amount. Use an empty array when the rubro has no itemized rows.
 CREDIT CARD STATEMENTS (Resúmenes de tarjeta de crédito):
 - 'totalAmount': ALWAYS set to the ARS total actually owed (the "Total a Pagar en Pesos", "Importe Total en $", or equivalent ARS summary line). Must be in ARS even when individual purchases were in USD.
 - 'currency': ALWAYS set to "ARS" for Argentine credit card statements.
@@ -280,8 +308,20 @@ const GEMINI_BILLING_SCHEMA = {
               rubroNumber: { type: "number", nullable: true },
               label: { type: "string", nullable: true },
               total: { type: "number", nullable: true },
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    label: { type: "string", nullable: true },
+                    detail: { type: "string", nullable: true },
+                    amount: { type: "number", nullable: true },
+                  },
+                  required: ["label", "detail", "amount"],
+                },
+              },
             },
-            required: ["rubroNumber", "label", "total"],
+            required: ["rubroNumber", "label", "total", "items"],
           },
         },
       },
@@ -584,17 +624,33 @@ function sanitizeInteger(value: unknown): number | null {
   return Number.isFinite(rounded) ? rounded : null;
 }
 
+function sanitizeHoaRubroItems(value: unknown): HoaRubroItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (!item || typeof item !== "object") {
+      return { label: null, detail: null, amount: null };
+    }
+    const rubroItem = item as Record<string, unknown>;
+    return {
+      label: sanitizeString(rubroItem.label),
+      detail: sanitizeString(rubroItem.detail),
+      amount: sanitizeNumber(rubroItem.amount),
+    };
+  });
+}
+
 function sanitizeHoaRubros(value: unknown): HoaRubro[] {
   if (!Array.isArray(value)) return [];
   return value.map((item) => {
     if (!item || typeof item !== "object") {
-      return { rubroNumber: null, label: null, total: null };
+      return { rubroNumber: null, label: null, total: null, items: [] };
     }
     const rubro = item as Record<string, unknown>;
     return {
       rubroNumber: sanitizeInteger(rubro.rubroNumber),
       label: normalizeRubroLabel(sanitizeString(rubro.label)),
       total: sanitizeNumber(rubro.total),
+      items: sanitizeHoaRubroItems(rubro.items),
     };
   });
 }

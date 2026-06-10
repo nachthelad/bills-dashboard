@@ -11,6 +11,13 @@ export type NormalizedHoaRubro = {
   rubroNumber: number | null;
   label: string | null;
   total: number | null;
+  items: NormalizedHoaRubroItem[];
+};
+
+export type NormalizedHoaRubroItem = {
+  label: string | null;
+  detail: string | null;
+  amount: number | null;
 };
 
 export type NormalizedHoaDetails = {
@@ -155,9 +162,22 @@ function normalizeHoaRubro(input: unknown): NormalizedHoaRubro {
   const rubroNumber = toInteger(rubro.rubroNumber);
   const label = toNonEmptyString(rubro.label);
   const total = toNumber(rubro.total);
+  const items = Array.isArray(rubro.items)
+    ? rubro.items.map((item) => normalizeHoaRubroItem(item))
+    : [];
   return {
     rubroNumber,
     label,
     total,
+    items,
+  };
+}
+
+function normalizeHoaRubroItem(input: unknown): NormalizedHoaRubroItem {
+  const item = (input ?? {}) as Record<string, unknown>;
+  return {
+    label: toNonEmptyString(item.label),
+    detail: toNonEmptyString(item.detail),
+    amount: toNumber(item.amount),
   };
 }

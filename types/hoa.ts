@@ -1,7 +1,14 @@
+export type HoaRubroItem = {
+  label: string | null
+  detail: string | null
+  amount: number | null
+}
+
 export type HoaRubro = {
   rubroNumber: number | null
   label: string | null
   total: number | null
+  items?: HoaRubroItem[]
 }
 
 export type HoaDetails = {
