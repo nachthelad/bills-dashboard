@@ -11,6 +11,15 @@ export type ExpenseEntry = {
   arsRate: number | null;
 };
 
+export type ExpenseCreateInput = {
+  description: string;
+  amount: number;
+  paymentMethod: ExpenseEntry["paymentMethod"];
+  category: string;
+  currency: string;
+  arsRate: number | null;
+};
+
 export const EXPENSE_CATEGORIES = [
   "Compra",
   "Comida",
@@ -99,6 +108,41 @@ export async function addExpenseEntry(
     currency: entry.currency ?? "ARS",
     arsRate: typeof entry.arsRate === "number" ? entry.arsRate : null,
   };
+}
+
+export async function addExpenseEntries(
+  token: string,
+  date: Date,
+  entries: ExpenseCreateInput[]
+): Promise<ExpenseEntry[]> {
+  const response = await fetch("/api/expenses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      date: date.toISOString(),
+      entries,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error ?? "No se pudieron guardar los gastos");
+  }
+
+  const payload = await response.json();
+  return (payload.entries ?? []).map((entry: any) => ({
+    id: entry.id,
+    date: normalizeDateInput(entry.date),
+    description: entry.description ?? "",
+    amount: entry.amount ?? 0,
+    paymentMethod: entry.paymentMethod ?? "Débito",
+    category: entry.category ?? "Otros",
+    currency: entry.currency ?? "ARS",
+    arsRate: typeof entry.arsRate === "number" ? entry.arsRate : null,
+  }));
 }
 
 export async function updateExpenseEntry(

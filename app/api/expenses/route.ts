@@ -13,6 +13,7 @@ import {
 } from "@/lib/server/document-serializer";
 import { sortExpenseEntriesForDisplay } from "@/lib/server/expense-sort";
 import { parseAmountInput } from "@/lib/amount-parser";
+import { normalizeExpenseBatch } from "@/lib/server/expense-batch";
 
 export async function GET(request: NextRequest) {
   const log = createRequestLogger({
@@ -52,6 +53,60 @@ export async function POST(request: NextRequest) {
     const { uid } = await authenticateRequest(request);
 
     const body = await request.json();
+    if (
+      body &&
+      typeof body === "object" &&
+      "entries" in body
+    ) {
+      const normalized = normalizeExpenseBatch(body);
+      if (!normalized.ok) {
+        return NextResponse.json(
+          { error: normalized.error },
+          { status: 400 }
+        );
+      }
+
+      const db = getAdminFirestore();
+      const batch = db.batch();
+      const collection = db.collection("dailyExpenses");
+      const date = Timestamp.fromDate(normalized.date);
+      const updatedAt = Timestamp.now();
+      const createdAtBase = Date.now();
+      const pendingEntries = normalized.entries.map((entry, index) => {
+        const ref = collection.doc();
+        const createdAt = Timestamp.fromMillis(createdAtBase - index);
+        const data = {
+          userId: uid,
+          ...entry,
+          date,
+          createdAt,
+          updatedAt,
+        };
+        batch.set(ref, data);
+        return { id: ref.id, data };
+      });
+
+      await batch.commit();
+
+      return NextResponse.json(
+        {
+          entries: pendingEntries.map(({ id, data }) => ({
+            id,
+            description: data.description,
+            amount: data.amount,
+            paymentMethod: data.paymentMethod,
+            category: data.category,
+            currency: data.currency,
+            arsRate: data.arsRate,
+            date: data.date.toDate().toISOString(),
+            createdAt: data.createdAt.toDate().toISOString(),
+            updatedAt: data.updatedAt.toDate().toISOString(),
+          })),
+        },
+        { status: 201 }
+      );
+    }
+
     const description = (body.description ?? "").toString().trim() || "Sin descripción";
     const amount = parseAmountInput(body.amount);
     const paymentMethod = (body.paymentMethod ?? "Débito").toString().trim();

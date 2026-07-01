@@ -1,0 +1,89 @@
+<h2>¿Cómo deberían acomodarse las líneas en el celular?</h2>
+<p class="subtitle">La fecha queda arriba y se aplica a todas. Tocá la opción que te resulte más cómoda para cargar varios gastos.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#081722;padding:18px;color:#e6eef4">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <strong>Agregar gastos</strong><span style="color:#41d89b">＋ Añadir línea</span>
+      </div>
+      <div style="border:1px solid #243746;border-radius:8px;padding:9px;margin-bottom:10px">01/07/2026　📅</div>
+      <div style="border:1px solid #243746;border-radius:10px;padding:10px;margin-bottom:8px">
+        <div style="border:1px solid #243746;border-radius:6px;padding:8px;margin-bottom:8px;color:#91a2af">Descripción</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+          <div style="border:1px solid #243746;border-radius:6px;padding:8px">0,00</div>
+          <div style="border:1px solid #243746;border-radius:6px;padding:8px">ARS⌄</div>
+          <div style="border:1px solid #243746;border-radius:6px;padding:8px">Compra⌄</div>
+          <div style="text-align:right;padding:8px;color:#ef7f84">Eliminar</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+        <div style="border:1px solid #40515e;border-radius:7px;padding:9px;text-align:center">Guardar</div>
+        <div style="background:#11c889;color:#04120d;border-radius:7px;padding:9px;text-align:center;font-weight:700">Guardar y cerrar</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · Tarjeta compacta</h3>
+      <p>Descripción arriba; importe, moneda y categoría debajo. Cómoda de tocar y sin desplazamiento lateral.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#081722;padding:18px;color:#e6eef4">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <strong>Agregar gastos</strong><span style="color:#41d89b">＋ Añadir línea</span>
+      </div>
+      <div style="border:1px solid #243746;border-radius:8px;padding:9px;margin-bottom:10px">01/07/2026　📅</div>
+      <div style="overflow:hidden;border:1px solid #243746;border-radius:8px">
+        <div style="display:grid;grid-template-columns:1.6fr .8fr .8fr 1fr;gap:5px;padding:9px;min-width:520px">
+          <div style="border:1px solid #243746;border-radius:5px;padding:7px;color:#91a2af">Descripción</div>
+          <div style="border:1px solid #243746;border-radius:5px;padding:7px">0,00</div>
+          <div style="border:1px solid #243746;border-radius:5px;padding:7px">ARS⌄</div>
+          <div style="border:1px solid #243746;border-radius:5px;padding:7px">Compra⌄</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#91a2af;margin:6px 0 16px">← Deslizá la fila para ver todos los campos →</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="border:1px solid #40515e;border-radius:7px;padding:9px;text-align:center">Guardar</div>
+        <div style="background:#11c889;color:#04120d;border-radius:7px;padding:9px;text-align:center;font-weight:700">Guardar y cerrar</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · Tabla horizontal</h3>
+      <p>Respeta literalmente una línea, pero en el celular requiere desplazamiento lateral y oculta campos.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#081722;padding:18px;color:#e6eef4">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <strong>Agregar gastos</strong><span style="color:#41d89b">＋ Añadir línea</span>
+      </div>
+      <div style="border:1px solid #243746;border-radius:8px;padding:9px;margin-bottom:10px">01/07/2026　📅</div>
+      <div style="display:grid;grid-template-columns:1.4fr .75fr;gap:6px;border-bottom:1px solid #243746;padding-bottom:8px;margin-bottom:8px">
+        <div style="border:1px solid #243746;border-radius:5px;padding:7px;color:#91a2af">Descripción</div>
+        <div style="border:1px solid #243746;border-radius:5px;padding:7px">0,00</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;grid-column:1 / -1">
+          <div style="border:1px solid #243746;border-radius:5px;padding:7px">ARS⌄</div>
+          <div style="border:1px solid #243746;border-radius:5px;padding:7px">Compra⌄</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.4fr .75fr;gap:6px;border-bottom:1px solid #243746;padding-bottom:8px;margin-bottom:14px">
+        <div style="border:1px solid #243746;border-radius:5px;padding:7px;color:#91a2af">Descripción</div>
+        <div style="border:1px solid #243746;border-radius:5px;padding:7px">0,00</div>
+        <div style="border:1px solid #243746;border-radius:5px;padding:7px">ARS⌄</div>
+        <div style="border:1px solid #243746;border-radius:5px;padding:7px">Compra⌄</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="border:1px solid #40515e;border-radius:7px;padding:9px;text-align:center">Guardar</div>
+        <div style="background:#11c889;color:#04120d;border-radius:7px;padding:9px;text-align:center;font-weight:700">Guardar y cerrar</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · Grilla densa</h3>
+      <p>Descripción e importe en la primera línea; moneda y categoría abajo. Entra más información con menos marco visual.</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:20px"><strong>Recomendación: A.</strong> Mantiene cada gasto claramente agrupado y sigue siendo rápida cuando haya tres o cuatro líneas.</p>
