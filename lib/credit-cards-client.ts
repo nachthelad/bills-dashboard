@@ -5,6 +5,7 @@ import type {
   CreditCardCurrency,
   CreditCardCycle,
   CreditCardPurchase,
+  CreditCardRecurringExpense,
   CreditCardStatus,
 } from "@/lib/credit-card-utils";
 
@@ -141,6 +142,60 @@ export async function deleteCreditCardPurchase(token: string, id: string) {
   });
 }
 
+export async function fetchCreditCardRecurringExpenses(
+  token: string,
+  cardId?: string
+) {
+  const search = cardId ? `?cardId=${encodeURIComponent(cardId)}` : "";
+  const data = await requestJson<{
+    recurringExpenses: CreditCardRecurringExpense[];
+  }>(token, `/api/credit-card-recurring-expenses${search}`);
+  return data.recurringExpenses ?? [];
+}
+
+export async function createCreditCardRecurringExpense(
+  token: string,
+  input: CreditCardRecurringExpenseInput
+) {
+  return requestJson<CreditCardRecurringExpense>(
+    token,
+    "/api/credit-card-recurring-expenses",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    }
+  );
+}
+
+export async function updateCreditCardRecurringExpense(
+  token: string,
+  id: string,
+  input: Pick<
+    CreditCardRecurringExpenseInput,
+    "name" | "monthlyAmount" | "currency"
+  >
+) {
+  return requestJson<CreditCardRecurringExpense>(
+    token,
+    `/api/credit-card-recurring-expenses/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }
+  );
+}
+
+export async function finishCreditCardRecurringExpense(
+  token: string,
+  id: string
+) {
+  await requestJson<void>(
+    token,
+    `/api/credit-card-recurring-expenses/${encodeURIComponent(id)}`,
+    { method: "DELETE" }
+  );
+}
+
 export type CreditCardPurchaseInput = {
   cardId: string;
   name: string;
@@ -148,6 +203,14 @@ export type CreditCardPurchaseInput = {
   totalAmount: number;
   currency: CreditCardCurrency;
   installments: number;
+};
+
+export type CreditCardRecurringExpenseInput = {
+  cardId: string;
+  name: string;
+  startDate: string;
+  monthlyAmount: number;
+  currency: CreditCardCurrency;
 };
 
 async function requestJson<T>(

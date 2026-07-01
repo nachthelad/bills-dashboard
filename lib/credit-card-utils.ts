@@ -34,7 +34,26 @@ export type CreditCardPurchase = {
   updatedAt?: string | null;
 };
 
+export type CreditCardRecurringExpenseVersion = {
+  effectiveFrom: string;
+  name: string;
+  monthlyAmount: number;
+  currency: CreditCardCurrency;
+};
+
+export type CreditCardRecurringExpense = {
+  id: string;
+  cardId: string;
+  startDate: string;
+  anchorDay: number;
+  endDate: string | null;
+  versions: CreditCardRecurringExpenseVersion[];
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type CreditCardInstallment = {
+  kind: "installment";
   purchaseId: string;
   purchaseName: string;
   purchaseDate: string;
@@ -46,6 +65,21 @@ export type CreditCardInstallment = {
   currency: CreditCardCurrency;
 };
 
+export type CreditCardRecurringCharge = {
+  kind: "recurring";
+  recurringExpenseId: string;
+  purchaseName: string;
+  purchaseDate: string;
+  cardId: string;
+  periodMonth: string;
+  amount: number;
+  currency: CreditCardCurrency;
+};
+
+export type CreditCardProjectionItem =
+  | CreditCardInstallment
+  | CreditCardRecurringCharge;
+
 export type CurrencyTotals = {
   ARS: number;
   USD: number;
@@ -55,7 +89,7 @@ export type CreditCardPeriodProjection = {
   cardId: string;
   periodMonth: string;
   cycle: CreditCardCycle | null;
-  installments: CreditCardInstallment[];
+  installments: CreditCardProjectionItem[];
   totals: CurrencyTotals;
 };
 
@@ -152,6 +186,7 @@ export function projectPurchaseInstallments(
     purchase.totalAmount,
     purchase.installments
   ).map((amount, index) => ({
+    kind: "installment" as const,
     purchaseId: purchase.id,
     purchaseName: purchase.name,
     purchaseDate: purchase.purchaseDate,
@@ -162,6 +197,98 @@ export function projectPurchaseInstallments(
     amount,
     currency: purchase.currency,
   }));
+}
+
+export function getRecurringOccurrenceDate(
+  startDate: string,
+  anchorDay: number,
+  monthOffset: number
+) {
+  const start = isoToDate(startDate);
+  if (!start || !Number.isInteger(anchorDay) || anchorDay < 1 || anchorDay > 31) {
+    throw new Error("Invalid recurring expense schedule");
+  }
+  const targetMonth = new Date(
+    start.getFullYear(),
+    start.getMonth() + monthOffset,
+    1
+  );
+  const lastDay = new Date(
+    targetMonth.getFullYear(),
+    targetMonth.getMonth() + 1,
+    0
+  ).getDate();
+  return toIsoDate(
+    new Date(
+      targetMonth.getFullYear(),
+      targetMonth.getMonth(),
+      Math.min(anchorDay, lastDay)
+    )
+  );
+}
+
+export function getNextRecurringOccurrenceDate(
+  expense: Pick<
+    CreditCardRecurringExpense,
+    "startDate" | "anchorDay" | "endDate"
+  >,
+  afterDate: string
+) {
+  for (let monthOffset = 0; monthOffset < 1200; monthOffset += 1) {
+    const occurrenceDate = getRecurringOccurrenceDate(
+      expense.startDate,
+      expense.anchorDay,
+      monthOffset
+    );
+    if (expense.endDate && occurrenceDate > expense.endDate) return null;
+    if (occurrenceDate > afterDate) return occurrenceDate;
+  }
+  return null;
+}
+
+export function projectRecurringExpenseCharges(
+  expense: CreditCardRecurringExpense,
+  cycles: CreditCardCycle[],
+  today: string,
+  futureMonthCount = 12
+): CreditCardRecurringCharge[] {
+  const horizonPeriod = addMonthsToPeriodMonth(
+    today.slice(0, 7),
+    futureMonthCount - 1
+  );
+  const versions = [...expense.versions].sort((a, b) =>
+    a.effectiveFrom.localeCompare(b.effectiveFrom)
+  );
+  const charges: CreditCardRecurringCharge[] = [];
+
+  for (let monthOffset = 0; monthOffset < 1200; monthOffset += 1) {
+    const purchaseDate = getRecurringOccurrenceDate(
+      expense.startDate,
+      expense.anchorDay,
+      monthOffset
+    );
+    if (expense.endDate && purchaseDate > expense.endDate) break;
+
+    const periodMonth = resolveFirstPeriodMonth(purchaseDate, cycles);
+    if (periodMonth > horizonPeriod) break;
+
+    const version = versions
+      .filter((candidate) => candidate.effectiveFrom <= purchaseDate)
+      .at(-1);
+    if (!version) continue;
+    charges.push({
+      kind: "recurring",
+      recurringExpenseId: expense.id,
+      purchaseName: version.name,
+      purchaseDate,
+      cardId: expense.cardId,
+      periodMonth,
+      amount: version.monthlyAmount,
+      currency: version.currency,
+    });
+  }
+
+  return charges;
 }
 
 export function calculateCurrencyTotals(
@@ -178,7 +305,9 @@ export function calculateCurrencyTotals(
 
 export function groupInstallmentsByPeriod(
   purchases: CreditCardPurchase[],
-  cycles: CreditCardCycle[]
+  cycles: CreditCardCycle[],
+  recurringExpenses: CreditCardRecurringExpense[] = [],
+  today = toIsoDate(new Date())
 ): CreditCardPeriodProjection[] {
   const cycleByKey = new Map(
     cycles.map((cycle) => [`${cycle.cardId}_${cycle.periodMonth}`, cycle])
@@ -210,8 +339,35 @@ export function groupInstallmentsByPeriod(
     }
   }
 
+  for (const expense of recurringExpenses) {
+    const cardCycles = cycles.filter((cycle) => cycle.cardId === expense.cardId);
+    for (const charge of projectRecurringExpenseCharges(
+      expense,
+      cardCycles,
+      today
+    )) {
+      const key = `${charge.cardId}_${charge.periodMonth}`;
+      const projection = projections.get(key) ?? {
+        cardId: charge.cardId,
+        periodMonth: charge.periodMonth,
+        cycle: cycleByKey.get(key) ?? null,
+        installments: [],
+        totals: { ARS: 0, USD: 0 },
+      };
+      projection.installments.push(charge);
+      projection.totals[charge.currency] += charge.amount;
+      projections.set(key, projection);
+    }
+  }
+
   for (const projection of projections.values()) {
     projection.installments.sort((a, b) => {
+      if (a.kind !== b.kind) {
+        return a.kind === "installment" ? -1 : 1;
+      }
+      if (a.kind === "recurring" || b.kind === "recurring") {
+        return a.purchaseDate.localeCompare(b.purchaseDate);
+      }
       const carriedInstallmentDiff =
         Number(b.installmentNumber > 1) - Number(a.installmentNumber > 1);
       if (carriedInstallmentDiff !== 0) return carriedInstallmentDiff;

@@ -6,12 +6,14 @@ import { useAuth } from "@/lib/auth-context";
 import {
   fetchCreditCardCycles,
   fetchCreditCardPurchases,
+  fetchCreditCardRecurringExpenses,
   fetchCreditCards,
 } from "@/lib/credit-cards-client";
 import type {
   CreditCard,
   CreditCardCycle,
   CreditCardPurchase,
+  CreditCardRecurringExpense,
 } from "@/lib/credit-card-utils";
 
 type BinanceRate = {
@@ -24,6 +26,9 @@ export function useCreditCardData() {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [cycles, setCycles] = useState<CreditCardCycle[]>([]);
   const [purchases, setPurchases] = useState<CreditCardPurchase[]>([]);
+  const [recurringExpenses, setRecurringExpenses] = useState<
+    CreditCardRecurringExpense[]
+  >([]);
   const [rate, setRate] = useState<BinanceRate | null>(null);
   const [rateLoading, setRateLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,14 +44,21 @@ export function useCreditCardData() {
     setLoading(true);
     try {
       const token = await user.getIdToken();
-      const [nextCards, nextCycles, nextPurchases] = await Promise.all([
+      const [
+        nextCards,
+        nextCycles,
+        nextPurchases,
+        nextRecurringExpenses,
+      ] = await Promise.all([
         fetchCreditCards(token),
         fetchCreditCardCycles(token),
         fetchCreditCardPurchases(token),
+        fetchCreditCardRecurringExpenses(token),
       ]);
       setCards(nextCards);
       setCycles(nextCycles);
       setPurchases(nextPurchases);
+      setRecurringExpenses(nextRecurringExpenses);
       setError(null);
     } catch (loadError) {
       setError(
@@ -88,6 +100,7 @@ export function useCreditCardData() {
     cards,
     cycles,
     purchases,
+    recurringExpenses,
     rate,
     rateLoading,
     loading,

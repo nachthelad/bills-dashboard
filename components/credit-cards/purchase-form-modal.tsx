@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { parseCreditCardStatement } from "@/lib/credit-card-statement-parser";
 import { parseAmountInput } from "@/lib/amount-parser";
 import { getLocalTodayIso } from "@/lib/date-picker";
@@ -33,6 +34,7 @@ import type {
   CreditCard,
   CreditCardCurrency,
   CreditCardPurchase,
+  CreditCardRecurringExpense,
 } from "@/lib/credit-card-utils";
 import { ResponsiveModal } from "./responsive-modal";
 
@@ -43,6 +45,7 @@ export type PurchaseFormValue = {
   totalAmount: number;
   currency: CreditCardCurrency;
   installments: number;
+  repeatsMonthly: boolean;
 };
 
 type PurchaseFormModalProps = {
@@ -50,6 +53,7 @@ type PurchaseFormModalProps = {
   onOpenChange: (open: boolean) => void;
   cards: CreditCard[];
   purchase?: CreditCardPurchase | null;
+  recurringExpense?: CreditCardRecurringExpense | null;
   initialCardId?: string;
   onSave: (value: PurchaseFormValue) => Promise<void>;
   onSaveMany: (values: PurchaseFormValue[]) => Promise<void>;
@@ -60,6 +64,7 @@ export function PurchaseFormModal({
   onOpenChange,
   cards,
   purchase,
+  recurringExpense,
   initialCardId,
   onSave,
   onSaveMany,
@@ -71,23 +76,38 @@ export function PurchaseFormModal({
     totalAmount: "",
     currency: "ARS" as CreditCardCurrency,
     installments: "1",
+    repeatsMonthly: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const cardId = purchase?.cardId ?? initialCardId ?? cards[0]?.id ?? "";
+    const recurringVersion = recurringExpense?.versions.at(-1);
+    const cardId =
+      purchase?.cardId ??
+      recurringExpense?.cardId ??
+      initialCardId ??
+      cards[0]?.id ??
+      "";
     setForm({
       cardId,
-      name: purchase?.name ?? "",
-      purchaseDate: purchase?.purchaseDate ?? getLocalTodayIso(),
-      totalAmount: purchase ? String(purchase.totalAmount) : "",
-      currency: purchase?.currency ?? "ARS",
+      name: purchase?.name ?? recurringVersion?.name ?? "",
+      purchaseDate:
+        purchase?.purchaseDate ??
+        recurringExpense?.startDate ??
+        getLocalTodayIso(),
+      totalAmount: purchase
+        ? String(purchase.totalAmount)
+        : recurringVersion
+          ? String(recurringVersion.monthlyAmount)
+          : "",
+      currency: purchase?.currency ?? recurringVersion?.currency ?? "ARS",
       installments: purchase ? String(purchase.installments) : "1",
+      repeatsMonthly: Boolean(recurringExpense),
     });
     setError(null);
-  }, [cards, initialCardId, open, purchase]);
+  }, [cards, initialCardId, open, purchase, recurringExpense]);
 
   const savePurchase = async (keepOpen: boolean) => {
     const totalAmount = parseAmountInput(form.totalAmount);
@@ -99,7 +119,8 @@ export function PurchaseFormModal({
       !Number.isFinite(totalAmount) ||
       totalAmount <= 0 ||
       !Number.isInteger(installments) ||
-      installments <= 0
+      installments <= 0 ||
+      (form.repeatsMonthly && installments !== 1)
     ) {
       setError("Completá los datos de la compra.");
       return;
@@ -115,6 +136,7 @@ export function PurchaseFormModal({
         totalAmount,
         currency: form.currency,
         installments,
+        repeatsMonthly: form.repeatsMonthly,
       });
       if (keepOpen) {
         setForm((current) => ({
@@ -144,16 +166,27 @@ export function PurchaseFormModal({
     <ResponsiveModal
       open={open}
       onOpenChange={onOpenChange}
-      title={purchase ? "Editar compra" : "Agregar compra"}
+      title={
+        recurringExpense
+          ? "Editar gasto recurrente"
+          : purchase
+            ? "Editar compra"
+            : "Agregar compra"
+      }
       description={
-        purchase
+        recurringExpense
+          ? "El cambio se aplicará desde el próximo cobro."
+          : purchase
           ? "Editá el total, la fecha de compra y la cantidad de cuotas."
           : "Registrá una compra o pegá una lista del resumen."
       }
       contentClassName="sm:max-w-[760px]"
     >
-      <Tabs defaultValue="manual">
-        {!purchase ? (
+      <Tabs
+        key={purchase?.id ?? recurringExpense?.id ?? "create"}
+        defaultValue={purchase || recurringExpense ? "manual" : "bulk"}
+      >
+        {!purchase && !recurringExpense ? (
           <TabsList>
             <TabsTrigger value="manual">Carga individual</TabsTrigger>
             <TabsTrigger value="bulk">Pegar lista</TabsTrigger>
@@ -172,7 +205,7 @@ export function PurchaseFormModal({
                   cardId,
                 }))
               }
-              disabled={Boolean(purchase)}
+              disabled={Boolean(purchase || recurringExpense)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Seleccionar tarjeta" />
@@ -189,9 +222,12 @@ export function PurchaseFormModal({
             </Select>
           </div>
           <div className="flex flex-col gap-2">
-            <Label>Fecha de compra</Label>
+            <Label>
+              {form.repeatsMonthly ? "Primer cobro" : "Fecha de compra"}
+            </Label>
             <DatePickerPopover
               value={form.purchaseDate}
+              disabled={Boolean(recurringExpense)}
               onChange={(purchaseDate) =>
                 setForm((current) => ({ ...current, purchaseDate }))
               }
@@ -231,7 +267,9 @@ export function PurchaseFormModal({
             </Select>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="purchase-amount">Monto total</Label>
+            <Label htmlFor="purchase-amount">
+              {form.repeatsMonthly ? "Monto mensual" : "Monto total"}
+            </Label>
             <Input
               id="purchase-amount"
               type="text"
@@ -253,6 +291,7 @@ export function PurchaseFormModal({
               type="number"
               min="1"
               step="1"
+              disabled={form.repeatsMonthly}
               value={form.installments}
               onChange={(event) =>
                 setForm((current) => ({
@@ -263,6 +302,28 @@ export function PurchaseFormModal({
             />
           </div>
         </div>
+        {!purchase ? (
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+            <div>
+              <Label htmlFor="purchase-recurring">Repetir todos los meses</Label>
+              <p className="text-xs text-muted-foreground">
+                Se proyecta durante 12 meses y continúa hasta que la finalices.
+              </p>
+            </div>
+            <Switch
+              id="purchase-recurring"
+              checked={form.repeatsMonthly}
+              disabled={Boolean(recurringExpense)}
+              onCheckedChange={(repeatsMonthly) =>
+                setForm((current) => ({
+                  ...current,
+                  repeatsMonthly,
+                  installments: repeatsMonthly ? "1" : current.installments,
+                }))
+              }
+            />
+          </div>
+        ) : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
@@ -272,7 +333,7 @@ export function PurchaseFormModal({
           >
             Cancelar
           </Button>
-          {!purchase ? (
+          {!purchase && !recurringExpense ? (
             <Button
               type="button"
               variant="outline"
@@ -288,7 +349,7 @@ export function PurchaseFormModal({
         </div>
           </form>
         </TabsContent>
-        {!purchase ? (
+        {!purchase && !recurringExpense ? (
           <TabsContent value="bulk">
             <BulkPurchaseForm
               cards={cards}
@@ -316,6 +377,9 @@ function BulkPurchaseForm({
 }) {
   const [cardId, setCardId] = useState(initialCardId ?? cards[0]?.id ?? "");
   const [text, setText] = useState("");
+  const [recurringRows, setRecurringRows] = useState<Set<number>>(
+    () => new Set()
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const parsed = useMemo(() => parseCreditCardStatement(text), [text]);
@@ -331,13 +395,14 @@ function BulkPurchaseForm({
     setError(null);
     try {
       await onSaveMany(
-        parsed.purchases.map((purchase) => ({
+        parsed.purchases.map((purchase, index) => ({
           cardId,
           name: purchase.name,
           purchaseDate: purchase.purchaseDate,
           totalAmount: purchase.totalAmount,
           currency: purchase.currency,
           installments: purchase.installments,
+          repeatsMonthly: recurringRows.has(index),
         }))
       );
       onOpenChange(false);
@@ -377,16 +442,20 @@ function BulkPurchaseForm({
           id="statement-purchases"
           className="min-h-40 font-mono text-xs"
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => {
+            setText(event.target.value);
+            setRecurringRows(new Set());
+          }}
           placeholder="01-05-26 K GOOGLE *YouTubeP ... USD 4,97 238534 4,97"
         />
         <p className="text-xs text-muted-foreground">
           Pegá una compra por línea. Sin indicador de cuotas se interpreta como
-          1/1; las líneas con USD se cargan en dólares.
+          1/1; las líneas con USD se cargan en dólares. Podés marcar como
+          recurrentes los consumos de una sola cuota.
         </p>
       </div>
       {parsed.purchases.length > 0 ? (
-        <div className="max-h-[42vh] overflow-y-auto rounded-md border">
+        <div className="max-h-[42vh] overflow-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -395,6 +464,7 @@ function BulkPurchaseForm({
                 <TableHead>Cuotas</TableHead>
                 <TableHead className="text-right">Cuota</TableHead>
                 <TableHead className="text-right">Total calculado</TableHead>
+                <TableHead className="text-right">Recurrente</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -412,6 +482,26 @@ function BulkPurchaseForm({
                   </TableCell>
                   <TableCell className="text-right font-medium">
                     {formatAmount(purchase.totalAmount, purchase.currency)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end">
+                      <Switch
+                        checked={recurringRows.has(index)}
+                        disabled={purchase.installments !== 1}
+                        aria-label={`Marcar ${purchase.name} como recurrente`}
+                        onCheckedChange={(checked) =>
+                          setRecurringRows((current) => {
+                            const next = new Set(current);
+                            if (checked) {
+                              next.add(index);
+                            } else {
+                              next.delete(index);
+                            }
+                            return next;
+                          })
+                        }
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
