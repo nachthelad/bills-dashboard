@@ -178,7 +178,7 @@ export default function ExpensesPage() {
               <div>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                   <TrendingDown className="w-3 h-3 text-rose-400" />
-                  Total (YTD)
+                  Total del año
                 </div>
                 <div className="text-lg font-bold text-rose-400 leading-tight">
                   {formatCurrency(ytdTotal)}

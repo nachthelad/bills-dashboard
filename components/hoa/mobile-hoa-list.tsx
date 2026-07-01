@@ -18,6 +18,7 @@ import {
   MinusCircle,
 } from "lucide-react";
 import type { HoaSummary } from "@/types/hoa";
+import { getHoaDifferenceStatusLabel } from "@/lib/ui-labels";
 
 interface MobileHoaListProps {
   currentSummary: HoaSummary | null;
@@ -59,21 +60,6 @@ export function MobileHoaList({
     }
   };
 
-  const statusLabel = (status: string) => {
-    switch (status) {
-      case "new":
-        return "New";
-      case "removed":
-        return "Removed";
-      case "increased":
-        return "Increased";
-      case "decreased":
-        return "Decreased";
-      default:
-        return "No changes";
-    }
-  };
-
   const toggleSort = () => {
     setSortBy((prev) => (prev === "category" ? "difference" : "category"));
   };
@@ -97,7 +83,7 @@ export function MobileHoaList({
   if (!currentSummary) {
     return (
       <div className="text-sm text-muted-foreground py-6 text-center border rounded-lg border-dashed">
-        No data for this unit.
+        No hay datos para esta unidad.
       </div>
     );
   }
@@ -106,7 +92,7 @@ export function MobileHoaList({
     return (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          No other period to compare. Categories of the last month:
+          No hay otro período para comparar. Categorías del último mes:
         </p>
         <div className="grid gap-3">
           {(currentSummary.rubros ?? []).map((rubro) => (
@@ -134,7 +120,7 @@ export function MobileHoaList({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-sm text-muted-foreground">
-          Details by {sortBy === "category" ? "category" : "difference"}
+          Detalles por {sortBy === "category" ? "categoría" : "diferencia"}
         </h3>
         <Button
           variant="outline"
@@ -143,7 +129,7 @@ export function MobileHoaList({
           className="h-8 gap-2"
         >
           <ArrowUpDown className="h-3 w-3" />
-          {sortBy === "category" ? "Diff" : "Cat"}
+          {sortBy === "category" ? "Diferencia" : "Categoría"}
         </Button>
       </div>
 
@@ -155,13 +141,13 @@ export function MobileHoaList({
                 <CardTitle className="text-base">{diff.label}</CardTitle>
                 <div className="flex items-center gap-2">
                   <CardDescription className="text-xs">
-                    Category {diff.rubroKey.split("::")[0]}
+                    Categoría {diff.rubroKey.split("::")[0]}
                   </CardDescription>
                   <Badge
                     variant="outline"
                     className={`${statusChipClass(diff.status)}`}
                   >
-                    {statusLabel(diff.status)}
+                    {getHoaDifferenceStatusLabel(diff.status)}
                   </Badge>
                 </div>
               </div>
@@ -188,7 +174,7 @@ export function MobileHoaList({
 
               <div className="flex justify-between items-center pt-2 border-t">
                 <span className="text-xs text-muted-foreground">
-                  Difference
+                  Diferencia
                 </span>
                 <div className="flex items-center gap-3">
                   <span

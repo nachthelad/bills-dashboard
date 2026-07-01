@@ -59,7 +59,7 @@ export function createApiClient(options: ApiClientOptions) {
       try {
         const token = await getToken()
         if (!token) {
-          throw new ApiError("Authentication required", { status: 401 })
+          throw new ApiError("Necesitás iniciar sesión", { status: 401 })
         }
 
         const headers = new Headers(fetchInit.headers)
@@ -163,7 +163,7 @@ async function parseResponseBody(response: Response) {
 }
 
 function toApiError(status: number, body: unknown) {
-  let message = `Request failed with status ${status}`
+  let message = `La solicitud falló con el estado ${status}`
   let code: string | undefined
   if (body && typeof body === "object") {
     if (typeof (body as any).error === "string") {

@@ -33,6 +33,7 @@ import {
 import { Search, TrendingUp, Trash2 } from "lucide-react";
 import { formatAmount } from "@/lib/format-currency";
 import { formatDate } from "@/lib/utils";
+import { getIncomeSourceLabel } from "@/lib/ui-labels";
 
 interface IncomeTableProps {
   entries: IncomeEntry[];
@@ -88,13 +89,13 @@ export function IncomeTable({ entries, showAmounts, onRefresh }: IncomeTableProp
         </div>
         <Select value={sourceFilter} onValueChange={setSourceFilter}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Source" />
+            <SelectValue placeholder="Fuente" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las fuentes</SelectItem>
             {sources.map((source) => (
               <SelectItem key={source} value={source}>
-                {source}
+                {getIncomeSourceLabel(source)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -134,7 +135,7 @@ export function IncomeTable({ entries, showAmounts, onRefresh }: IncomeTableProp
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {entry.source}
+                    {getIncomeSourceLabel(entry.source)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatDate(entry.date)}
@@ -146,7 +147,7 @@ export function IncomeTable({ entries, showAmounts, onRefresh }: IncomeTableProp
                     <Button
                       variant="ghost"
                       size="icon"
-                      aria-label="Delete income"
+                      aria-label="Eliminar ingreso"
                       className="h-7 w-7 text-muted-foreground hover:text-destructive"
                       onClick={() => setDeleteId(entry.id)}
                     >

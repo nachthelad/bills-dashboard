@@ -95,7 +95,7 @@ export default function DashboardPage() {
       } catch (err) {
         console.error("Dashboard load error", err);
         if (!cancelled) {
-          setError("Failed to load dashboard data.");
+          setError("No se pudieron cargar los datos del panel.");
         }
       } finally {
         if (!cancelled) {
@@ -329,7 +329,7 @@ export default function DashboardPage() {
         dueDate: parseLocalDay(doc.dueDate),
         amount: doc.amount ?? doc.totalAmount ?? 0,
         description:
-          doc.providerNameDetected || doc.providerId || "Unknown Bill",
+          doc.providerNameDetected || doc.providerId || "Boleta sin identificar",
         category: getCategoryLabel(doc.category),
         status: doc.status as any,
       }));
@@ -340,7 +340,7 @@ export default function DashboardPage() {
       date: entry.date,
       amount: entry.amount,
       description: entry.name,
-      category: "Income",
+      category: "Ingreso",
     }));
 
     return [...expenses, ...incomes]
@@ -361,7 +361,7 @@ export default function DashboardPage() {
     const months = Array.from({ length: 12 }, (_, i) => {
       const date = new Date(currentYear, i, 1);
       return {
-        name: date.toLocaleString("default", { month: "short" }),
+        name: date.toLocaleString("es-AR", { month: "short" }),
         expenses: 0,
         income: 0,
       };
@@ -434,7 +434,7 @@ export default function DashboardPage() {
             onValueChange={(val) => setSelectedYear(Number(val))}
           >
             <SelectTrigger className="w-[120px] h-8">
-              <SelectValue placeholder="Select year" />
+              <SelectValue placeholder="Seleccionar año" />
             </SelectTrigger>
             <SelectContent>
               {availableYears.map((year) => (
@@ -446,7 +446,7 @@ export default function DashboardPage() {
           </Select>
           <Link
             href="/settings"
-            aria-label="Settings"
+            aria-label="Configuración"
             className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
             <Settings className="h-4 w-4" />

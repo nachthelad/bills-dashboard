@@ -36,9 +36,9 @@ export async function GET() {
     );
 
     const price = parseFloat(ad?.adv?.price ?? "0");
-    if (!price) return NextResponse.json({ error: "No data" }, { status: 502 });
+    if (!price) return NextResponse.json({ error: "No hay datos disponibles" }, { status: 502 });
     return NextResponse.json({ price, updatedAt: new Date().toISOString() });
   } catch {
-    return NextResponse.json({ error: "Failed" }, { status: 502 });
+    return NextResponse.json({ error: "No se pudo obtener la cotización" }, { status: 502 });
   }
 }

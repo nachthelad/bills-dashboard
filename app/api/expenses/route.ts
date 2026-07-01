@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     if (authResponse) return authResponse;
     log.error("Expenses GET error", { error });
     return NextResponse.json(
-      { error: "Failed to load expense entries" },
+      { error: "No se pudieron cargar los gastos" },
       { status: 500 }
     );
   }
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         : null;
 
     if (!Number.isFinite(amount)) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+      return NextResponse.json({ error: "El monto no es válido" }, { status: 400 });
     }
 
     const entryRef = await getAdminFirestore()
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     if (authResponse) return authResponse;
     log.error("Expenses POST error", { error });
     return NextResponse.json(
-      { error: "Failed to add expense entry" },
+      { error: "No se pudo agregar el gasto" },
       { status: 500 }
     );
   }

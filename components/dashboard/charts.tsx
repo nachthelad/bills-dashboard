@@ -30,15 +30,15 @@ interface ChartsProps {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "Credit Card": "#f87171", // red
-  Electricity: "#facc15", // yellow
-  Gas: "#fb923c", // orange
-  "Gastos Diarios": "#a78bfa", // violet
-  Health: "#34d399", // green
-  "Home / HOA": "#60a5fa", // blue
-  "Internet / Mobile": "#38bdf8", // sky
-  Water: "#2dd4bf", // teal
-  Other: "#94a3b8", // slate
+  credit_card: "#f87171",
+  electricity: "#facc15",
+  gas: "#fb923c",
+  daily_expenses: "#a78bfa",
+  health: "#34d399",
+  hoa: "#60a5fa",
+  internet: "#38bdf8",
+  water: "#2dd4bf",
+  other: "#94a3b8",
 };
 
 const FALLBACK_COLORS = [
@@ -71,7 +71,7 @@ export function DashboardCharts({
   };
 
   const data = Object.entries(categoryTotals)
-    .map(([name, value]) => ({ name: getCategoryLabel(name), value }))
+    .map(([key, value]) => ({ key, name: getCategoryLabel(key), value }))
     .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value);
 
@@ -173,7 +173,7 @@ export function DashboardCharts({
                       <Cell
                         key={`cell-${index}`}
                         fill={
-                          CATEGORY_COLORS[entry.name] ??
+                          CATEGORY_COLORS[entry.key] ??
                           FALLBACK_COLORS[index % FALLBACK_COLORS.length]
                         }
                       />
@@ -195,7 +195,7 @@ export function DashboardCharts({
             <div className="flex flex-col gap-2 text-xs md:text-sm min-w-[110px] md:min-w-[130px]">
               {data.map((entry, index) => {
                 const color =
-                  CATEGORY_COLORS[entry.name] ??
+                  CATEGORY_COLORS[entry.key] ??
                   FALLBACK_COLORS[index % FALLBACK_COLORS.length];
                 const total = data.reduce((s, d) => s + d.value, 0);
                 const pct =

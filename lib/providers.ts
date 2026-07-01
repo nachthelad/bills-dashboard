@@ -32,7 +32,7 @@ export const PROVIDERS: ProviderSeed[] = [
   },
   {
     id: "visa",
-    name: "Visa Credit Card",
+    name: "Tarjeta Visa",
     category: "credit_card",
     aliases: ["VISA", "Resumen de Cuenta"],
   },

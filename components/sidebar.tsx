@@ -21,7 +21,7 @@ export function Sidebar() {
       label: item.title,
       icon: item.icon,
     })),
-    { href: "/upload", label: "Upload Bill", icon: Upload },
+    { href: "/upload", label: "Cargar boleta", icon: Upload },
   ];
 
   return (
@@ -29,7 +29,7 @@ export function Sidebar() {
       <div className="p-6 border-b border-sidebar-border">
         <h1 className="text-xl font-bold tracking-tight">TOLVA</h1>
         <p className="text-sm text-sidebar-foreground/70 mt-1">
-          Keep your utilities in sync
+          Mantené tus finanzas al día
         </p>
       </div>
 
@@ -58,7 +58,7 @@ export function Sidebar() {
           className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
         >
           <LogOut className="w-4 h-4" />
-          Sign Out
+          Cerrar sesión
         </Button>
       </div>
     </aside>

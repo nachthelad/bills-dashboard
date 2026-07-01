@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     return NextResponse.json(await getOwnedPurchase(uid, id));
   } catch (error) {
-    return handleRouteError(error, "Failed to load purchase");
+    return handleRouteError(error, "No se pudo cargar la compra");
   }
 }
 
@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     await docRef.update({ ...input, updatedAt: Timestamp.now() });
     return NextResponse.json(serializePurchase(await docRef.get()));
   } catch (error) {
-    return handleRouteError(error, "Failed to update purchase");
+    return handleRouteError(error, "No se pudo actualizar la compra");
   }
 }
 
@@ -63,7 +63,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     await getAdminFirestore().collection("creditCardPurchases").doc(id).delete();
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    return handleRouteError(error, "Failed to delete purchase");
+    return handleRouteError(error, "No se pudo eliminar la compra");
   }
 }
 

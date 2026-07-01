@@ -75,10 +75,10 @@ export function useCreditCardData() {
     setRateLoading(true);
     try {
       const response = await fetch("/api/binance-rate");
-      if (!response.ok) throw new Error("Rate unavailable");
+      if (!response.ok) throw new Error("La cotización no está disponible");
       const data = await response.json();
       if (typeof data.price !== "number" || data.price <= 0) {
-        throw new Error("Invalid rate");
+        throw new Error("La cotización recibida no es válida");
       }
       setRate({ price: data.price, updatedAt: data.updatedAt });
     } catch {

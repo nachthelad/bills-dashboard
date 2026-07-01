@@ -55,7 +55,8 @@ test("parsePurchaseInput requires a positive integer installment count", () => {
       }),
     (error) =>
       error instanceof CreditCardDataError &&
-      error.message === "Installments must be a positive integer"
+      error.message ===
+        "La cantidad de cuotas debe ser un número entero mayor que cero"
   );
 });
 
@@ -119,6 +120,6 @@ test("parseRecurringExpenseUpdateInput rejects non-positive amounts", () => {
       ),
     (error) =>
       error instanceof CreditCardDataError &&
-      error.message === "Amount must be greater than zero"
+      error.message === "El monto debe ser mayor que cero"
   );
 });

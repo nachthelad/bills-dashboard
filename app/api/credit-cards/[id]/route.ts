@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     return NextResponse.json(await getOwnedCard(uid, id));
   } catch (error) {
-    return handleRouteError(error, "Failed to load card");
+    return handleRouteError(error, "No se pudo cargar la tarjeta");
   }
 }
 
@@ -41,7 +41,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     await docRef.update(updates);
     return NextResponse.json(serializeCard(await docRef.get()));
   } catch (error) {
-    return handleRouteError(error, "Failed to update card");
+    return handleRouteError(error, "No se pudo actualizar la tarjeta");
   }
 }
 
@@ -54,7 +54,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     await docRef.update({ status: "archived", updatedAt: Timestamp.now() });
     return NextResponse.json(serializeCard(await docRef.get()));
   } catch (error) {
-    return handleRouteError(error, "Failed to archive card");
+    return handleRouteError(error, "No se pudo archivar la tarjeta");
   }
 }
 

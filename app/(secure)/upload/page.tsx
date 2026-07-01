@@ -54,7 +54,7 @@ export default function UploadPage() {
             ? `${
                 manualForm.provider?.trim() || manualForm.category?.trim()
               } (manual)`
-            : `Manual Bill ${getLocalTodayIso()}`,
+            : `Factura manual ${getLocalTodayIso()}`,
         storageUrl: null,
         provider: manualForm.provider?.trim() || null,
         category: manualForm.category || null,
@@ -73,7 +73,7 @@ export default function UploadPage() {
     } catch (err) {
       console.error("Manual doc error:", err);
       setManualError(
-        err instanceof Error ? err.message : "Failed to save manual bill"
+        err instanceof Error ? err.message : "No se pudo guardar la factura manual"
       );
     } finally {
       setManualLoading(false);

@@ -162,7 +162,7 @@ export function splitAmountIntoInstallments(
   installmentCount: number
 ) {
   if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-    throw new Error("Total amount must be greater than zero");
+    throw new Error("El monto total debe ser mayor que cero");
   }
   if (!Number.isInteger(installmentCount) || installmentCount <= 0) {
     throw new Error("Installment count must be a positive integer");
@@ -206,7 +206,7 @@ export function getRecurringOccurrenceDate(
 ) {
   const start = isoToDate(startDate);
   if (!start || !Number.isInteger(anchorDay) || anchorDay < 1 || anchorDay > 31) {
-    throw new Error("Invalid recurring expense schedule");
+    throw new Error("La configuración del gasto recurrente no es válida");
   }
   const targetMonth = new Date(
     start.getFullYear(),

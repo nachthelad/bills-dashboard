@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     return (
       handleAuthError(error) ??
       toErrorResponse(error) ??
-      NextResponse.json({ error: "Failed to load cards" }, { status: 500 })
+      NextResponse.json({ error: "No se pudieron cargar las tarjetas" }, { status: 500 })
     );
   }
 }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     return (
       handleAuthError(error) ??
       toErrorResponse(error) ??
-      NextResponse.json({ error: "Failed to create card" }, { status: 500 })
+      NextResponse.json({ error: "No se pudo crear la tarjeta" }, { status: 500 })
     );
   }
 }

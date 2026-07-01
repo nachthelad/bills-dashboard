@@ -59,7 +59,7 @@ export async function PATCH(
     if (body.amount !== undefined) {
       const amount = Number.parseFloat(body.amount);
       if (!Number.isFinite(amount) || amount <= 0) {
-        return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+        return NextResponse.json({ error: "El monto no es válido" }, { status: 400 });
       }
       updates.amount = amount;
     }
@@ -68,7 +68,7 @@ export async function PATCH(
       const name = String(body.name ?? "").trim();
       if (!name) {
         return NextResponse.json(
-          { error: "Name is required" },
+          { error: "El nombre es obligatorio" },
           { status: 400 }
         );
       }
@@ -79,7 +79,7 @@ export async function PATCH(
       const source = String(body.source ?? "").trim();
       if (!source) {
         return NextResponse.json(
-          { error: "Source is required" },
+          { error: "La fuente es obligatoria" },
           { status: 400 }
         );
       }
@@ -99,9 +99,9 @@ export async function PATCH(
     const updatedData = updatedSnapshot.data();
     return NextResponse.json({
       id: updatedSnapshot.id,
-      name: updatedData?.name ?? "Unnamed",
+      name: updatedData?.name ?? "Sin nombre",
       amount: updatedData?.amount ?? 0,
-      source: updatedData?.source ?? "Unknown",
+      source: updatedData?.source ?? "Sin fuente",
       date: updatedData?.date?.toDate
         ? updatedData.date.toDate().toISOString()
         : new Date().toISOString(),
@@ -113,17 +113,17 @@ export async function PATCH(
       return authResponse;
     }
     if (error?.message === "Forbidden") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "No tenés permiso para realizar esta acción" }, { status: 403 });
     }
     if (error?.message === "NotFound") {
       return NextResponse.json(
-        { error: "Income entry not found" },
+        { error: "No se encontró el ingreso" },
         { status: 404 }
       );
     }
     log.error("Income PATCH error", { error });
     return NextResponse.json(
-      { error: "Failed to update income entry" },
+      { error: "No se pudo actualizar el ingreso" },
       { status: 500 }
     );
   }
@@ -152,17 +152,17 @@ export async function DELETE(
       return authResponse;
     }
     if (error?.message === "Forbidden") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "No tenés permiso para realizar esta acción" }, { status: 403 });
     }
     if (error?.message === "NotFound") {
       return NextResponse.json(
-        { error: "Income entry not found" },
+        { error: "No se encontró el ingreso" },
         { status: 404 }
       );
     }
     log.error("Income DELETE error", { error });
     return NextResponse.json(
-      { error: "Failed to delete income entry" },
+      { error: "No se pudo eliminar el ingreso" },
       { status: 500 }
     );
   }

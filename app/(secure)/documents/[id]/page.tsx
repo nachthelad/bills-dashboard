@@ -8,21 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { ChevronLeft, Trash2 } from "lucide-react";
-import { CATEGORY_OPTIONS } from "@/config/billing/categories";
+import {
+  CATEGORY_OPTIONS,
+  getCategoryLabel,
+} from "@/config/billing/categories";
 import { DatePickerPopover } from "@/components/ui/date-picker-popover";
 import {
   AmountVisibilityToggle,
   useAmountVisibility,
 } from "@/components/amount-visibility";
-
-const DOCUMENT_STATUS_LABELS: Record<string, string> = {
-  pending: "Pendiente",
-  parsing: "Procesando",
-  parsed: "Procesado",
-  needs_review: "Requiere revisión",
-  paid: "Pagado",
-  error: "Error",
-};
+import { getDocumentStatusLabel } from "@/lib/ui-labels";
 
 export default function DocumentDetailPage() {
   const { user } = useAuth();
@@ -75,7 +70,7 @@ export default function DocumentDetailPage() {
 
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
-          throw new Error(data.error ?? "Failed to load document");
+          throw new Error(data.error ?? "No se pudo cargar la boleta");
         }
 
         const data = await response.json();
@@ -85,7 +80,7 @@ export default function DocumentDetailPage() {
       } catch (error) {
         console.error("Error fetching document:", error);
         setActionError(
-          error instanceof Error ? error.message : "Failed to fetch document"
+          error instanceof Error ? error.message : "No se pudo cargar la boleta"
         );
       } finally {
         if (withLoader) {
@@ -144,7 +139,7 @@ export default function DocumentDetailPage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to save document");
+        throw new Error(data.error ?? "No se pudo guardar la boleta");
       }
 
       const updated = mapResponseToDocument(await response.json());
@@ -155,7 +150,7 @@ export default function DocumentDetailPage() {
     } catch (error) {
       console.error("Error saving document:", error);
       setActionError(
-        error instanceof Error ? error.message : "Failed to save document"
+        error instanceof Error ? error.message : "No se pudo guardar la boleta"
       );
     }
   };
@@ -177,14 +172,14 @@ export default function DocumentDetailPage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to parse document");
+        throw new Error(data.error ?? "No se pudo procesar la boleta");
       }
 
       await refreshDocument();
     } catch (error) {
       console.error("Error parsing document:", error);
       setParseError(
-        error instanceof Error ? error.message : "Unexpected error"
+        error instanceof Error ? error.message : "Ocurrió un error inesperado"
       );
     } finally {
       setParseLoading(false);
@@ -205,14 +200,14 @@ export default function DocumentDetailPage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to delete document");
+        throw new Error(data.error ?? "No se pudo eliminar la boleta");
       }
 
       router.push("/documents");
     } catch (error) {
       console.error("Error deleting document:", error);
       setActionError(
-        error instanceof Error ? error.message : "Failed to delete document"
+        error instanceof Error ? error.message : "No se pudo eliminar la boleta"
       );
     }
   };
@@ -285,7 +280,7 @@ export default function DocumentDetailPage() {
               </div>
               <p className="text-sm text-muted-foreground">
                 Estado:{" "}
-                {DOCUMENT_STATUS_LABELS[document.status] ?? document.status}
+                {getDocumentStatusLabel(document.status)}
               </p>
             </div>
           </div>
@@ -326,7 +321,10 @@ export default function DocumentDetailPage() {
               value={document.provider ?? document.providerNameDetected}
             />
             <InfoItem label="ID proveedor" value={document.providerId} />
-            <InfoItem label="Categoría" value={document.category} />
+            <InfoItem
+              label="Categoría"
+              value={getCategoryLabel(document.category)}
+            />
             <InfoItem
               label="Monto total"
               value={formatCurrency(document.totalAmount ?? document.amount)}

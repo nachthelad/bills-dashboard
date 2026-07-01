@@ -33,7 +33,7 @@ export default function HoaHistoryPage() {
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(body.error ?? "Failed to load HOA summaries");
+        throw new Error(body.error ?? "No se pudo cargar el historial de expensas");
       }
 
       const payload = await response.json();
@@ -49,7 +49,7 @@ export default function HoaHistoryPage() {
       setSummaries(normalized);
       setError(null);
     } catch (err) {
-      setError((err as Error).message ?? "Unexpected error");
+      setError((err as Error).message ?? "Ocurrió un error inesperado");
     } finally {
       setLoading(false);
     }

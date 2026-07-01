@@ -18,7 +18,7 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="h-8 gap-1">
             <Calendar className="h-4 w-4" />
-            <span>This Year</span>
+            <span>Este año</span>
           </Button>
           <Separator orientation="vertical" className="h-4" />
           <AmountVisibilityToggle />

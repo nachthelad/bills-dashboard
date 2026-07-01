@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => a.periodMonth.localeCompare(b.periodMonth));
     return NextResponse.json({ cycles });
   } catch (error) {
-    return handleRouteError(error, "Failed to load cycles");
+    return handleRouteError(error, "No se pudieron cargar los períodos");
   }
 }
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       .doc(makeCycleId(input.cardId, input.periodMonth));
     if ((await docRef.get()).exists) {
       return NextResponse.json(
-        { error: "A cycle already exists for this month" },
+        { error: "Ya existe un período para este mes" },
         { status: 409 }
       );
     }
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       status: 201,
     });
   } catch (error) {
-    return handleRouteError(error, "Failed to create cycle");
+    return handleRouteError(error, "No se pudo crear el período");
   }
 }
 

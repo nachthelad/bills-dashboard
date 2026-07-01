@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    return handleRouteError(error, "Failed to import purchases");
+    return handleRouteError(error, "No se pudieron importar las compras");
   }
 }
 

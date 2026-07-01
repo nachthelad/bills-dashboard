@@ -55,12 +55,12 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get("file")
     if (!(file instanceof File)) {
-      return buildErrorResponse("FILE_REQUIRED", "A file upload is required.", 400)
+      return buildErrorResponse("FILE_REQUIRED", "Tenés que seleccionar un archivo.", 400)
     }
 
     const rawFileName = formData.get("fileName")
     if (typeof rawFileName !== "string" || !rawFileName.trim()) {
-      return buildErrorResponse("FILENAME_REQUIRED", "The original file name is required.", 400)
+      return buildErrorResponse("FILENAME_REQUIRED", "El nombre original del archivo es obligatorio.", 400)
     }
 
     const userId = uid
@@ -128,6 +128,6 @@ export async function POST(request: NextRequest) {
       return authResponse
     }
     log.error("Server upload error", { error })
-    return buildErrorResponse("UNKNOWN", "Failed to upload file", 500)
+    return buildErrorResponse("UNKNOWN", "No se pudo cargar el archivo", 500)
   }
 }

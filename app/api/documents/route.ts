@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       log.warn("Invalid document payload", { issues: parsed.error.issues });
       return NextResponse.json(
-        { error: "Invalid document payload" },
+        { error: "Los datos de la boleta no son válidos" },
         { status: 400 }
       );
     }
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
     log.error("Server create document error", { error });
     return NextResponse.json(
-      { error: "Failed to create document" },
+      { error: "No se pudo crear la boleta" },
       { status: 500 }
     );
   }
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     }
     log.error("Server list documents error", { error });
     return NextResponse.json(
-      { error: "Failed to load documents" },
+      { error: "No se pudieron cargar las boletas" },
       { status: 500 }
     );
   }

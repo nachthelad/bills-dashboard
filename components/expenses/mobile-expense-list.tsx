@@ -149,7 +149,7 @@ export function MobileExpenseList({
           <div className="flex gap-2">
             <Select value={monthFilter} onValueChange={onMonthFilterChange}>
               <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Month" />
+                <SelectValue placeholder="Mes" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los meses</SelectItem>
@@ -162,7 +162,7 @@ export function MobileExpenseList({
             </Select>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder="Categoría" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las categorías</SelectItem>
@@ -205,7 +205,7 @@ export function MobileExpenseList({
                       <Button
                         variant="ghost"
                         size="icon"
-                        aria-label="Edit expense"
+                        aria-label="Editar gasto"
                         className="h-7 w-7 text-muted-foreground"
                         onClick={() => {
                           setEditEntry(entry);
@@ -217,7 +217,7 @@ export function MobileExpenseList({
                       <Button
                         variant="ghost"
                         size="icon"
-                        aria-label="Delete expense"
+                        aria-label="Eliminar gasto"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
                         onClick={() => setDeleteId(entry.id)}
                       >

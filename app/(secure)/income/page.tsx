@@ -85,7 +85,7 @@ export default function IncomePage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
               <TrendingUp className="w-4 h-4 text-emerald-500" />
-              Ingresos Totales (YTD)
+              Ingresos totales del año
             </div>
             <div className="text-3xl font-bold text-emerald-500">
               {formatCurrency(totalIncome)}

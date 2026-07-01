@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const authResponse = handleAuthError(error);
     if (authResponse) return authResponse;
     return NextResponse.json(
-      { error: "Failed to load categories" },
+      { error: "No se pudieron cargar las categorías" },
       { status: 500 }
     );
   }
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const category = (body.category ?? "").toString().trim();
     if (!category) {
       return NextResponse.json(
-        { error: "Category name required" },
+        { error: "El nombre de la categoría es obligatorio" },
         { status: 400 }
       );
     }
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const authResponse = handleAuthError(error);
     if (authResponse) return authResponse;
     return NextResponse.json(
-      { error: "Failed to add category" },
+      { error: "No se pudo agregar la categoría" },
       { status: 500 }
     );
   }

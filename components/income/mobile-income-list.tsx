@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Search, TrendingUp, Calendar, Trash2 } from "lucide-react";
 import { formatAmount } from "@/lib/format-currency";
+import { getIncomeSourceLabel } from "@/lib/ui-labels";
 
 interface MobileIncomeListProps {
   entries: IncomeEntry[];
@@ -99,13 +100,13 @@ export function MobileIncomeList({
         </div>
         <Select value={sourceFilter} onValueChange={setSourceFilter}>
           <SelectTrigger>
-            <SelectValue placeholder="Source" />
+            <SelectValue placeholder="Fuente" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las fuentes</SelectItem>
             {sources.map((source) => (
               <SelectItem key={source} value={source}>
-                {source}
+                {getIncomeSourceLabel(source)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -132,7 +133,7 @@ export function MobileIncomeList({
                           {entry.name}
                         </CardTitle>
                         <CardDescription className="text-xs mt-0.5">
-                          {entry.source}
+                          {getIncomeSourceLabel(entry.source)}
                         </CardDescription>
                       </div>
                     </div>
@@ -140,7 +141,7 @@ export function MobileIncomeList({
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Delete income"
+                    aria-label="Eliminar ingreso"
                     className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
                     onClick={() => setDeleteId(entry.id)}
                   >

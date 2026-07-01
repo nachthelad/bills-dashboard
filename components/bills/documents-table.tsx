@@ -39,6 +39,7 @@ import { CATEGORY_OPTIONS } from "@/config/billing/categories";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { formatDate } from "@/lib/utils";
+import { getDocumentStatusLabel } from "@/lib/ui-labels";
 
 interface DocumentsTableProps {
   documents: BillDocument[];
@@ -107,7 +108,7 @@ export function DocumentsTable({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete document");
+        throw new Error("No se pudo eliminar la boleta");
       }
 
       onDeleteComplete?.();
@@ -194,7 +195,7 @@ export function DocumentsTable({
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder="Categoría" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las categorías</SelectItem>
@@ -207,7 +208,7 @@ export function DocumentsTable({
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los estados</SelectItem>
@@ -222,7 +223,7 @@ export function DocumentsTable({
           variant="outline"
           onClick={handleMarkAllClick}
           disabled={filteredDocuments.every((doc) => doc.status === "paid")}
-          title="Mark all visible documents as paid"
+          title="Marcar todas las boletas visibles como pagadas"
         >
           Marcar todo como pagado
         </Button>
@@ -286,7 +287,7 @@ export function DocumentsTable({
                         variant="outline"
                         className={statusStyles[doc.status]}
                       >
-                        {doc.status === "needs_review" ? "Requiere revisión" : doc.status === "parsed" ? "Procesado" : doc.status === "pending" ? "Pendiente" : doc.status === "paid" ? "Pagado" : doc.status}
+                        {getDocumentStatusLabel(doc.status)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
@@ -295,7 +296,7 @@ export function DocumentsTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => markAsPaid(doc.id)}
-                          title="Mark as Paid"
+                          title="Marcar como pagada"
                           className="text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50"
                         >
                           <CheckCircle className="h-4 w-4" />
@@ -306,7 +307,7 @@ export function DocumentsTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => markAsPaid(doc.id)}
-                          title="Mark as Unpaid"
+                          title="Marcar como pendiente"
                           className="text-emerald-500 hover:text-amber-500 hover:bg-amber-50"
                         >
                           <CheckCircle className="h-4 w-4" />
@@ -319,20 +320,20 @@ export function DocumentsTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => addToCalendar(doc)}
-                          title="Add to Google Calendar"
+                          title="Agregar a Google Calendar"
                         >
                           <Calendar className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label="Delete document"
+                          aria-label="Eliminar boleta"
                           onClick={() => confirmDelete(doc)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" asChild>
-                          <Link href={`/documents/${doc.id}`} aria-label="View document details">
+                          <Link href={`/documents/${doc.id}`} aria-label="Ver detalle de la boleta">
                             <ChevronRight className="h-4 w-4" />
                           </Link>
                         </Button>
@@ -340,7 +341,7 @@ export function DocumentsTable({
                           <Button variant="ghost" size="icon" asChild>
                             <a
                               href={doc.storageUrl}
-                              aria-label="Open PDF"
+                              aria-label="Abrir PDF"
                               target="_blank"
                               rel="noopener noreferrer"
                             >

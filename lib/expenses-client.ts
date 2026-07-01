@@ -38,7 +38,7 @@ export async function fetchExpenseEntries(
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error ?? "Failed to fetch expense entries");
+    throw new Error(data.error ?? "No se pudieron cargar los gastos");
   }
 
   const payload = await response.json();
@@ -85,7 +85,7 @@ export async function addExpenseEntry(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error ?? "Failed to add expense entry");
+    throw new Error(errorData.error ?? "No se pudo agregar el gasto");
   }
 
   const entry = await response.json();
@@ -133,7 +133,7 @@ export async function updateExpenseEntry(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error ?? "Failed to update expense entry");
+    throw new Error(errorData.error ?? "No se pudo actualizar el gasto");
   }
 
   const entry = await response.json();
@@ -160,7 +160,7 @@ export async function deleteExpenseEntry(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error ?? "Failed to delete expense entry");
+    throw new Error(errorData.error ?? "No se pudo eliminar el gasto");
   }
 }
 
@@ -191,7 +191,7 @@ export async function addExpenseCategory(
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error ?? "Failed to add category");
+    throw new Error(data.error ?? "No se pudo agregar la categoría");
   }
 }
 

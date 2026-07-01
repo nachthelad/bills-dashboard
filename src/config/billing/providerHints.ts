@@ -276,19 +276,19 @@ export const PROVIDER_HINTS: ProviderHint[] = [
   },
   {
     providerId: "generic_electricity",
-    providerName: "Electricity Service",
+    providerName: "Servicio de electricidad",
     category: "electricity",
     keywords: ["luz", "energia", "electricidad", "electric"],
   },
   {
     providerId: "generic_water",
-    providerName: "Water Service",
+    providerName: "Servicio de agua",
     category: "water",
     keywords: ["agua", "aguas", "saneamiento"],
   },
   {
     providerId: "generic_gas",
-    providerName: "Gas Service",
+    providerName: "Servicio de gas",
     category: "gas",
     keywords: ["gas", "gas natural"],
   },
@@ -306,7 +306,7 @@ export const PROVIDER_HINTS: ProviderHint[] = [
   },
   {
     providerId: "generic_credit_card",
-    providerName: "Credit Card",
+    providerName: "Tarjeta de crédito",
     category: "credit_card",
     keywords: ["tarjeta", "credito", "resumen", "banco"],
   },
