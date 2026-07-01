@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carga múltiple de gastos</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#111820;color:#e7eef3;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,input{font:inherit}.page{min-height:100vh;padding:28px}.intro{max-width:1180px;margin:0 auto 22px}.intro h1{margin:0 0 6px;font-size:24px}.intro p{margin:0;color:#91a1ad}
+    .previews{max-width:1180px;margin:auto;display:grid;grid-template-columns:minmax(0,1.7fr) 390px;gap:28px;align-items:start}
+    .label{margin:0 0 9px;color:#9cacb8;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+    .stage{min-height:680px;border:1px solid #263746;border-radius:14px;background:#0b131b;display:flex;align-items:center;justify-content:center;padding:28px;overflow:hidden}
+    .dialog{width:100%;max-width:840px;border:1px solid #263746;border-radius:14px;background:#0d1b26;box-shadow:0 24px 80px rgba(0,0,0,.42)}
+    .dialog-head,.drawer-head{display:flex;align-items:flex-start;justify-content:space-between;padding:22px 24px 18px}.title{font-size:20px;font-weight:750}.subtitle{margin-top:4px;color:#93a4b0;font-size:14px}.close{border:0;background:none;color:#91a1ad;font-size:22px;line-height:1}
+    .body{padding:0 24px 22px}.toolbar{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:18px}.date{width:220px}.field-name{display:block;margin:0 0 7px;font-size:13px;font-weight:700;color:#d7e0e6}
+    .control{height:42px;border:1px solid #263a4a;border-radius:8px;background:#07141f;color:#e6edf2;padding:0 12px;display:flex;align-items:center;min-width:0}.control.muted{color:#81939f}.add{height:40px;border:1px solid #26c99555;border-radius:8px;background:#0f2c27;color:#37d7a0;padding:0 13px;font-weight:700;display:flex;align-items:center;gap:6px}
+    .table{border:1px solid #263746;border-radius:10px;overflow:hidden}.thead,.expense-row{display:grid;grid-template-columns:minmax(210px,2.2fr) minmax(110px,.9fr) 115px minmax(130px,1.1fr) 40px;gap:9px;align-items:center}.thead{padding:9px 12px;background:#10222e;color:#82939e;font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.05em}.expense-row{padding:10px 12px;border-top:1px solid #213442}.expense-row:first-of-type{border-top:0}.expense-row .control{width:100%}.trash{width:38px;height:38px;border:0;background:transparent;color:#e87f84;border-radius:7px;font-size:17px}.trash:hover{background:#3a1f27}
+    .footer{display:flex;justify-content:flex-end;gap:10px;padding:17px 24px;border-top:1px solid #213442}.btn{height:42px;border-radius:8px;padding:0 18px;font-weight:750}.btn.secondary{border:1px solid #2b4050;background:#0a1721;color:#dfe8ee}.btn.primary{border:1px solid #0dca88;background:#08c985;color:#041811}
+    .phone{height:760px;border:1px solid #324553;border-radius:32px;background:#050b10;padding:11px;box-shadow:0 20px 65px rgba(0,0,0,.42)}.phone-screen{height:100%;border-radius:23px;overflow:hidden;background:#07141e;display:flex;align-items:end}.drawer{width:100%;max-height:94%;border-top:1px solid #2a3c49;border-radius:22px 22px 0 0;background:#0d1b26;box-shadow:0 -16px 50px rgba(0,0,0,.46)}.grab{width:32px;height:4px;border-radius:99px;background:#8797a2;margin:9px auto 3px}.drawer-head{padding:10px 18px 14px}.drawer .title{font-size:19px}.drawer .body{padding:0 17px 14px;max-height:565px;overflow:auto}.drawer .toolbar{align-items:center;margin-bottom:12px}.drawer .date{width:170px}.drawer .add{padding:0 10px;font-size:13px}.mobile-card{border:1px solid #263a49;border-radius:10px;padding:10px;margin-bottom:10px;background:#0a1721}.card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:#8fa0ac;font-size:12px;font-weight:700}.mobile-card .description{margin-bottom:8px}.mobile-grid{display:grid;grid-template-columns:1.15fr .8fr 1.15fr;gap:7px}.mobile-card .control{height:40px;padding:0 9px;font-size:13px}.drawer-footer{display:grid;grid-template-columns:1fr 1.28fr;gap:9px;padding:12px 17px 18px;border-top:1px solid #213442;background:#0d1b26}.drawer-footer .btn{padding:0 9px;font-size:13px}
+    .note{max-width:1180px;margin:22px auto 0;border:1px solid #264036;background:#10231f;border-radius:10px;padding:13px 15px;color:#add8c8;font-size:14px}
+    @media(max-width:900px){.previews{grid-template-columns:1fr}.desktop-wrap{display:none}.phone-wrap{justify-self:center}.page{padding:18px 12px}.intro{text-align:center}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="intro">
+      <h1>Una función, dos composiciones</h1>
+      <p>Desktop aprovecha el ancho como tabla. Mobile conserva el drawer y agrupa cada gasto en una tarjeta compacta.</p>
+    </div>
+    <div class="previews">
+      <section class="desktop-wrap">
+        <p class="label">Desktop · modal ancho</p>
+        <div class="stage">
+          <div class="dialog">
+            <header class="dialog-head">
+              <div><div class="title">Agregar gastos</div><div class="subtitle">Cargá uno o varios gastos del mismo día.</div></div>
+              <button class="close" aria-label="Cerrar">×</button>
+            </header>
+            <div class="body">
+              <div class="toolbar">
+                <div class="date"><span class="field-name">Fecha</span><div class="control">01/07/2026 <span style="margin-left:auto">▣</span></div></div>
+                <button class="add">＋ Añadir línea</button>
+              </div>
+              <div class="table">
+                <div class="thead"><span>Descripción</span><span>Importe</span><span>Moneda</span><span>Categoría</span><span></span></div>
+                <div class="expense-row">
+                  <div class="control muted">p. ej. Carrefour</div><div class="control muted">0,00</div><div class="control">ARS <span style="margin-left:auto">⌄</span></div><div class="control">Compra <span style="margin-left:auto">⌄</span></div><button class="trash" aria-label="Eliminar">⌫</button>
+                </div>
+                <div class="expense-row">
+                  <div class="control">Farmacia Central</div><div class="control">18.500,00</div><div class="control">ARS <span style="margin-left:auto">⌄</span></div><div class="control">Salud <span style="margin-left:auto">⌄</span></div><button class="trash" aria-label="Eliminar">⌫</button>
+                </div>
+                <div class="expense-row">
+                  <div class="control">Estacionamiento</div><div class="control">7.200,00</div><div class="control">ARS <span style="margin-left:auto">⌄</span></div><div class="control">Transporte <span style="margin-left:auto">⌄</span></div><button class="trash" aria-label="Eliminar">⌫</button>
+                </div>
+              </div>
+            </div>
+            <footer class="footer"><button class="btn secondary">Guardar</button><button class="btn primary">Guardar y cerrar</button></footer>
+          </div>
+        </div>
+      </section>
+      <section class="phone-wrap">
+        <p class="label">Mobile · drawer actual</p>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="drawer">
+              <div class="grab"></div>
+              <header class="drawer-head">
+                <div><div class="title">Agregar gastos</div><div class="subtitle">Mismo día, varias cargas.</div></div>
+                <button class="close" aria-label="Cerrar">×</button>
+              </header>
+              <div class="body">
+                <div class="toolbar">
+                  <div class="date"><div class="control">01/07/2026 <span style="margin-left:auto">▣</span></div></div>
+                  <button class="add">＋ Añadir</button>
+                </div>
+                <div class="mobile-card">
+                  <div class="card-top"><span>Gasto 1</span><button class="trash" style="height:28px" aria-label="Eliminar">⌫</button></div>
+                  <div class="control muted description">Descripción</div>
+                  <div class="mobile-grid"><div class="control muted">0,00</div><div class="control">ARS⌄</div><div class="control">Compra⌄</div></div>
+                </div>
+                <div class="mobile-card">
+                  <div class="card-top"><span>Gasto 2</span><button class="trash" style="height:28px" aria-label="Eliminar">⌫</button></div>
+                  <div class="control description">Farmacia Central</div>
+                  <div class="mobile-grid"><div class="control">18.500</div><div class="control">ARS⌄</div><div class="control">Salud⌄</div></div>
+                </div>
+                <div class="mobile-card">
+                  <div class="card-top"><span>Gasto 3</span><button class="trash" style="height:28px" aria-label="Eliminar">⌫</button></div>
+                  <div class="control description">Estacionamiento</div>
+                  <div class="mobile-grid"><div class="control">7.200</div><div class="control">ARS⌄</div><div class="control">Transp.⌄</div></div>
+                </div>
+              </div>
+              <footer class="drawer-footer"><button class="btn secondary">Guardar</button><button class="btn primary">Guardar y cerrar</button></footer>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div class="note"><strong>Comportamiento:</strong> “Guardar” envía todas las filas completas y deja el drawer/modal abierto con una fila nueva vacía. “Guardar y cerrar” hace lo mismo y cierra. Una fila con datos incompletos muestra el error dentro de esa fila.</div>
+  </main>
+</body>
+</html>
