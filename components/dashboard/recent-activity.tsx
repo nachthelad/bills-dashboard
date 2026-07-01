@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { getDocumentStatusLabel } from "@/lib/ui-labels";
 
 export interface ActivityItem {
   id: string;
@@ -100,7 +101,7 @@ export function RecentActivity({ items, showAmounts }: RecentActivityProps) {
                               : "text-muted-foreground"
                           }`}
                         >
-                          {item.status}
+                          {getDocumentStatusLabel(item.status)}
                           {item.status === "paid" && " ✓"}
                         </span>
                       )}

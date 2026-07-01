@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowDownLeft, ArrowUpRight, Calendar } from "lucide-react";
 import type { ActivityItem } from "./recent-activity";
 import { formatDate } from "@/lib/utils";
+import { getDocumentStatusLabel } from "@/lib/ui-labels";
 
 interface MobileRecentActivityProps {
   items: ActivityItem[];
@@ -66,7 +67,7 @@ export function MobileRecentActivity({
                     </CardTitle>
                     {item.status && item.status !== "completed" && (
                       <span className="text-xs text-muted-foreground capitalize">
-                        {item.status}
+                        {getDocumentStatusLabel(item.status)}
                       </span>
                     )}
                   </div>

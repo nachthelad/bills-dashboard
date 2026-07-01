@@ -122,7 +122,7 @@ export function UploadPanel({ onUploadComplete }: UploadPanelProps) {
       }
 
       if (!storageUrl) {
-        throw new Error("Unable to upload file");
+        throw new Error("No se pudo cargar el archivo");
       }
 
       // Create document record via server
@@ -143,7 +143,7 @@ export function UploadPanel({ onUploadComplete }: UploadPanelProps) {
       onUploadComplete();
     } catch (err) {
       console.error("Upload error:", err);
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(err instanceof Error ? err.message : "No se pudo cargar el archivo");
       setProgress(0);
     } finally {
       setLoading(false);
@@ -154,9 +154,9 @@ export function UploadPanel({ onUploadComplete }: UploadPanelProps) {
   return (
     <Card className="h-full flex flex-col border-dashed border-2 border-border">
       <CardHeader>
-        <CardTitle>Upload Bill</CardTitle>
+        <CardTitle>Cargar boleta</CardTitle>
         <CardDescription>
-          Drag and drop your bill (PDF, PNG, JPG) here to parse it automatically.
+          Arrastrá una boleta (PDF, PNG o JPG) para procesarla automáticamente.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 flex flex-col items-center justify-center flex-1 min-h-[200px]">
@@ -172,10 +172,10 @@ export function UploadPanel({ onUploadComplete }: UploadPanelProps) {
           >
             <Upload className="w-10 h-10 mb-4 text-muted-foreground" />
             <p className="text-sm font-medium">
-              Click to upload or drag and drop
+              Hacé clic para elegir un archivo o arrastralo hasta acá
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              {describeAllowedFileTypes()} (max {formatMaxUploadSize()})
+              {describeAllowedFileTypes()} (máx. {formatMaxUploadSize()})
             </p>
             <input
               type="file"
@@ -215,7 +215,7 @@ export function UploadPanel({ onUploadComplete }: UploadPanelProps) {
               <div className="space-y-1">
                 <Progress value={progress} className="h-2" />
                 <p className="text-xs text-muted-foreground text-center">
-                  Uploading and processing...
+                  Cargando y procesando...
                 </p>
               </div>
             )}
@@ -225,7 +225,7 @@ export function UploadPanel({ onUploadComplete }: UploadPanelProps) {
               onClick={handleUpload}
               disabled={loading}
             >
-              {loading ? "Processing..." : "Confirm Upload"}
+              {loading ? "Procesando..." : "Confirmar carga"}
             </Button>
           </div>
         )}

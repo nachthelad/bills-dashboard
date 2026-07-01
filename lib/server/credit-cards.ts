@@ -31,30 +31,30 @@ export class CreditCardDataError extends Error {
 
 export function parseCardName(value: unknown) {
   const name = typeof value === "string" ? value.trim() : "";
-  if (!name) throw new CreditCardDataError(400, "Card name required");
+  if (!name) throw new CreditCardDataError(400, "El nombre de la tarjeta es obligatorio");
   return name;
 }
 
 export function parseCardStatus(value: unknown): CreditCardStatus {
   if (value === "active" || value === "archived") return value;
-  throw new CreditCardDataError(400, "Invalid card status");
+  throw new CreditCardDataError(400, "El estado de la tarjeta no es válido");
 }
 
 export function parseCurrency(value: unknown): CreditCardCurrency {
   if (value === "ARS" || value === "USD") return value;
-  throw new CreditCardDataError(400, "Invalid currency");
+  throw new CreditCardDataError(400, "La moneda no es válida");
 }
 
 export function parseCycleInput(body: Record<string, unknown>) {
-  const cardId = parseRequiredString(body.cardId, "Card required");
+  const cardId = parseRequiredString(body.cardId, "La tarjeta es obligatoria");
   const periodMonth = parsePeriodMonth(body.periodMonth);
-  const closingDate = parseIsoDay(body.closingDate, "Invalid closing date");
-  const dueDate = parseIsoDay(body.dueDate, "Invalid due date");
+  const closingDate = parseIsoDay(body.closingDate, "La fecha de cierre no es válida");
+  const dueDate = parseIsoDay(body.dueDate, "La fecha de vencimiento no es válida");
 
   if (closingDate >= dueDate) {
     throw new CreditCardDataError(
       400,
-      "Due date must be after closing date"
+      "La fecha de vencimiento debe ser posterior al cierre"
     );
   }
   if (dueDate.slice(0, 7) !== periodMonth) {
@@ -68,21 +68,21 @@ export function parseCycleInput(body: Record<string, unknown>) {
 }
 
 export function parsePurchaseInput(body: Record<string, unknown>) {
-  const cardId = parseRequiredString(body.cardId, "Card required");
-  const name = parseRequiredString(body.name, "Purchase name required");
-  const purchaseDate = parseIsoDay(body.purchaseDate, "Invalid purchase date");
+  const cardId = parseRequiredString(body.cardId, "La tarjeta es obligatoria");
+  const name = parseRequiredString(body.name, "El nombre de la compra es obligatorio");
+  const purchaseDate = parseIsoDay(body.purchaseDate, "La fecha de compra no es válida");
   const totalAmount = parseAmountInput(body.totalAmount);
   const installments = Number(body.installments);
   const currency = parseCurrency(body.currency);
   const firstPeriodMonth = getFirstPeriodMonthFromPurchaseDate(purchaseDate);
 
   if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-    throw new CreditCardDataError(400, "Amount must be greater than zero");
+    throw new CreditCardDataError(400, "El monto debe ser mayor que cero");
   }
   if (!Number.isInteger(installments) || installments <= 0) {
     throw new CreditCardDataError(
       400,
-      "Installments must be a positive integer"
+      "La cantidad de cuotas debe ser un número entero mayor que cero"
     );
   }
 
@@ -98,14 +98,14 @@ export function parsePurchaseInput(body: Record<string, unknown>) {
 }
 
 export function parseRecurringExpenseInput(body: Record<string, unknown>) {
-  const cardId = parseRequiredString(body.cardId, "Card required");
-  const name = parseRequiredString(body.name, "Recurring expense name required");
-  const startDate = parseIsoDay(body.startDate, "Invalid start date");
+  const cardId = parseRequiredString(body.cardId, "La tarjeta es obligatoria");
+  const name = parseRequiredString(body.name, "El nombre del gasto recurrente es obligatorio");
+  const startDate = parseIsoDay(body.startDate, "La fecha de inicio no es válida");
   const monthlyAmount = parseAmountInput(body.monthlyAmount);
   const currency = parseCurrency(body.currency);
 
   if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) {
-    throw new CreditCardDataError(400, "Amount must be greater than zero");
+    throw new CreditCardDataError(400, "El monto debe ser mayor que cero");
   }
 
   return {
@@ -125,11 +125,11 @@ export function parseRecurringExpenseUpdateInput(
   body: Record<string, unknown>,
   effectiveFrom: string
 ) {
-  const name = parseRequiredString(body.name, "Recurring expense name required");
+  const name = parseRequiredString(body.name, "El nombre del gasto recurrente es obligatorio");
   const monthlyAmount = parseAmountInput(body.monthlyAmount);
   const currency = parseCurrency(body.currency);
   if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) {
-    throw new CreditCardDataError(400, "Amount must be greater than zero");
+    throw new CreditCardDataError(400, "El monto debe ser mayor que cero");
   }
   return {
     effectiveFrom,
@@ -150,15 +150,15 @@ export async function getOwnedCard(
     .get();
 
   if (!snapshot.exists) {
-    throw new CreditCardDataError(404, "Card not found");
+    throw new CreditCardDataError(404, "No se encontró la tarjeta");
   }
   const card = serializeCard(snapshot);
   const userId = snapshot.data()?.userId;
   if (userId !== uid) {
-    throw new CreditCardDataError(403, "Forbidden");
+    throw new CreditCardDataError(403, "No tenés permiso para realizar esta acción");
   }
   if (options.requireActive && card.status !== "active") {
-    throw new CreditCardDataError(400, "Archived cards cannot accept purchases");
+    throw new CreditCardDataError(400, "No podés agregar compras a una tarjeta archivada");
   }
   return card;
 }
@@ -169,10 +169,10 @@ export async function getOwnedCycle(uid: string, cycleId: string) {
     .doc(cycleId)
     .get();
   if (!snapshot.exists) {
-    throw new CreditCardDataError(404, "Cycle not found");
+    throw new CreditCardDataError(404, "No se encontró el período");
   }
   if (snapshot.data()?.userId !== uid) {
-    throw new CreditCardDataError(403, "Forbidden");
+    throw new CreditCardDataError(403, "No tenés permiso para realizar esta acción");
   }
   return serializeCycle(snapshot);
 }
@@ -183,10 +183,10 @@ export async function getOwnedPurchase(uid: string, purchaseId: string) {
     .doc(purchaseId)
     .get();
   if (!snapshot.exists) {
-    throw new CreditCardDataError(404, "Purchase not found");
+    throw new CreditCardDataError(404, "No se encontró la compra");
   }
   if (snapshot.data()?.userId !== uid) {
-    throw new CreditCardDataError(403, "Forbidden");
+    throw new CreditCardDataError(403, "No tenés permiso para realizar esta acción");
   }
   return serializePurchase(snapshot);
 }
@@ -200,10 +200,10 @@ export async function getOwnedRecurringExpense(
     .doc(recurringExpenseId)
     .get();
   if (!snapshot.exists) {
-    throw new CreditCardDataError(404, "Recurring expense not found");
+    throw new CreditCardDataError(404, "No se encontró el gasto recurrente");
   }
   if (snapshot.data()?.userId !== uid) {
-    throw new CreditCardDataError(403, "Forbidden");
+    throw new CreditCardDataError(403, "No tenés permiso para realizar esta acción");
   }
   return serializeRecurringExpense(snapshot);
 }
@@ -348,9 +348,9 @@ function parseRequiredString(value: unknown, message: string) {
 }
 
 function parsePeriodMonth(value: unknown) {
-  const parsed = parseRequiredString(value, "Period month required");
+  const parsed = parseRequiredString(value, "El mes del período es obligatorio");
   if (!isValidPeriodMonth(parsed)) {
-    throw new CreditCardDataError(400, "Invalid period month");
+    throw new CreditCardDataError(400, "El mes del período no es válido");
   }
   return parsed;
 }

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { ArrowUpDown } from "lucide-react";
 import type { HoaSummary } from "@/types/hoa";
+import { getHoaDifferenceStatusLabel } from "@/lib/ui-labels";
 
 interface HoaTableProps {
   currentSummary: HoaSummary | null;
@@ -50,21 +51,6 @@ export function HoaTable({
         return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
       default:
         return "border-border bg-muted text-muted-foreground";
-    }
-  };
-
-  const statusLabel = (status: string) => {
-    switch (status) {
-      case "new":
-        return "Nuevo";
-      case "removed":
-        return "Eliminado";
-      case "increased":
-        return "Aumentado";
-      case "decreased":
-        return "Disminuido";
-      default:
-        return "Sin cambios";
     }
   };
 
@@ -214,7 +200,7 @@ export function HoaTable({
                         variant="outline"
                         className={statusBadgeClass(diff.status)}
                       >
-                        {statusLabel(diff.status)}
+                        {getHoaDifferenceStatusLabel(diff.status)}
                       </Badge>
                     </TableCell>
                   </TableRow>

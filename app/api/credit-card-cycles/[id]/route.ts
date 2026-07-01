@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     return NextResponse.json(await getOwnedCycle(uid, id));
   } catch (error) {
-    return handleRouteError(error, "Failed to load cycle");
+    return handleRouteError(error, "No se pudo cargar el período");
   }
 }
 
@@ -49,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     });
     return NextResponse.json(serializeCycle(await docRef.get()));
   } catch (error) {
-    return handleRouteError(error, "Failed to update cycle");
+    return handleRouteError(error, "No se pudo actualizar el período");
   }
 }
 
@@ -64,7 +64,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
       .delete();
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    return handleRouteError(error, "Failed to delete cycle");
+    return handleRouteError(error, "No se pudo eliminar el período");
   }
 }
 

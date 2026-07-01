@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Tolva",
     short_name: "Tolva",
-    description: "Manage your recurring bills with ease",
+    description: "Gestioná tus boletas y finanzas en un solo lugar",
     start_url: "/",
     display: "standalone",
     background_color: "#020617", // matching oklch(0.16 0.03 250) - slate-950

@@ -54,10 +54,10 @@ export function defaultCategoryTotals(): Record<CategoryValue, number> {
 }
 
 export function generateCalendarUrl(doc: BillDocument): string {
-  const title = `Pagar ${doc.provider || doc.providerNameDetected || "Bill"} $${
+  const title = `Pagar ${doc.provider || doc.providerNameDetected || "boleta"} $${
     doc.amount ?? doc.totalAmount ?? 0
   }`;
-  const details = `Document Link: ${doc.storageUrl || ""}`;
+  const details = `Enlace al documento: ${doc.storageUrl || ""}`;
 
   let datesParam = "";
   if (doc.dueDate) {

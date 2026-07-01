@@ -16,7 +16,7 @@ function bufferToHex(buffer: ArrayBuffer) {
 async function computeBrowserChecksum(file: File) {
   const data = await file.arrayBuffer()
   if (!globalThis.crypto?.subtle) {
-    throw new Error("Secure checksum calculation is not supported in this browser.")
+    throw new Error("Este navegador no permite verificar el archivo de forma segura.")
   }
   const digest = await globalThis.crypto.subtle.digest("SHA-256", data)
   return bufferToHex(digest)

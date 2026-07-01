@@ -54,7 +54,7 @@ export default function HoaPage() {
 
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
-          throw new Error(body.error ?? "Failed to load HOA summaries");
+          throw new Error(body.error ?? "No se pudieron cargar las expensas");
         }
 
         const payload = await response.json();
@@ -71,7 +71,7 @@ export default function HoaPage() {
         setError(null);
       } catch (err) {
         console.error(err);
-        setError((err as Error).message ?? "Unexpected error");
+        setError((err as Error).message ?? "Ocurrió un error inesperado");
       } finally {
         if (withLoader) setLoading(false);
       }
@@ -106,8 +106,8 @@ export default function HoaPage() {
         buildingCode: summary.buildingCode ?? "N/A",
         unitCode: unitCode,
         label: `${
-          summary.buildingAddress ?? summary.buildingCode ?? "Building"
-        } - Unit ${summary.unitLabel ?? unitCode}`,
+          summary.buildingAddress ?? summary.buildingCode ?? "Edificio"
+        } - Unidad ${summary.unitLabel ?? unitCode}`,
       });
     });
     return Array.from(map.values());

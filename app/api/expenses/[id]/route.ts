@@ -29,12 +29,15 @@ export async function PATCH(
     const existing = await docRef.get();
 
     if (!existing.exists) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "No se encontró el gasto" }, { status: 404 });
     }
 
     const data = existing.data() as Record<string, unknown>;
     if (data.userId !== uid) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { error: "No tenés permiso para realizar esta acción" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -53,7 +56,7 @@ export async function PATCH(
         : null;
 
     if (!Number.isFinite(amount)) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+      return NextResponse.json({ error: "El monto no es válido" }, { status: 400 });
     }
 
     await docRef.update({
@@ -94,7 +97,7 @@ export async function PATCH(
     if (authResponse) return authResponse;
     log.error("Expenses PATCH error", { error });
     return NextResponse.json(
-      { error: "Failed to update expense entry" },
+      { error: "No se pudo actualizar el gasto" },
       { status: 500 }
     );
   }
@@ -116,12 +119,15 @@ export async function DELETE(
     const existing = await docRef.get();
 
     if (!existing.exists) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({ error: "No se encontró el gasto" }, { status: 404 });
     }
 
     const data = existing.data() as Record<string, unknown>;
     if (data.userId !== uid) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { error: "No tenés permiso para realizar esta acción" },
+        { status: 403 }
+      );
     }
 
     await docRef.delete();
@@ -131,7 +137,7 @@ export async function DELETE(
     if (authResponse) return authResponse;
     log.error("Expenses DELETE error", { error });
     return NextResponse.json(
-      { error: "Failed to delete expense entry" },
+      { error: "No se pudo eliminar el gasto" },
       { status: 500 }
     );
   }

@@ -93,7 +93,7 @@ async function verifyRequestAuthorization(
       claims: decoded,
     }
   } catch (error) {
-    throw new AuthError(401, "unauthorized", "Invalid or expired token", {
+    throw new AuthError(401, "unauthorized", "La sesión no es válida o venció", {
       cause: error instanceof Error ? error.message : "unknown",
     })
   }
@@ -102,7 +102,7 @@ async function verifyRequestAuthorization(
 function extractBearerToken(header: string) {
   const match = /^\s*Bearer\s+(.+)$/i.exec(header)
   if (!match) {
-    throw new AuthError(401, "unauthorized", "Missing or invalid Authorization header")
+    throw new AuthError(401, "unauthorized", "Falta una autorización válida")
   }
   const token = match[1]?.trim()
   if (!token) {

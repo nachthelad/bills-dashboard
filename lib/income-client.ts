@@ -20,15 +20,15 @@ export async function fetchIncomeEntries(
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error ?? "Failed to fetch income entries");
+    throw new Error(data.error ?? "No se pudieron cargar los ingresos");
   }
 
   const payload = await response.json();
   return (payload.entries ?? []).map((entry: any) => ({
     id: entry.id,
-    name: entry.name ?? "Unnamed",
+    name: entry.name ?? "Sin nombre",
     amount: entry.amount ?? 0,
-    source: entry.source ?? "Unknown",
+    source: entry.source ?? "Sin fuente",
     currency: entry.currency ?? "ARS",
     date: normalizeDateInput(entry.date),
   }));
@@ -55,15 +55,15 @@ export async function addIncomeEntry(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error ?? "Failed to add income entry");
+    throw new Error(errorData.error ?? "No se pudo agregar el ingreso");
   }
 
   const entry = await response.json();
   return {
     id: entry.id,
-    name: entry.name ?? "Unnamed",
+    name: entry.name ?? "Sin nombre",
     amount: entry.amount ?? 0,
-    source: entry.source ?? "Unknown",
+    source: entry.source ?? "Sin fuente",
     currency: entry.currency ?? "ARS",
     date: normalizeDateInput(entry.date),
   };
@@ -80,7 +80,7 @@ export async function deleteIncomeEntry(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error ?? "Failed to delete income entry");
+    throw new Error(errorData.error ?? "No se pudo eliminar el ingreso");
   }
 }
 

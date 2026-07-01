@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     if (!documentId) {
       return NextResponse.json(
-        { error: "Missing documentId" },
+        { error: "Falta identificar la boleta" },
         { status: 400 }
       );
     }
@@ -153,20 +153,23 @@ export async function POST(request: NextRequest) {
     const docSnapshot = await docRef.get();
     if (!docSnapshot.exists) {
       return NextResponse.json(
-        { error: "Document not found" },
+        { error: "No se encontró la boleta" },
         { status: 404 }
       );
     }
 
     const documentData = docSnapshot.data();
     if (documentData?.userId && documentData.userId !== uid) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { error: "No tenés permiso para realizar esta acción" },
+        { status: 403 }
+      );
     }
     const pdfUrl = documentData?.pdfUrl ?? documentData?.storageUrl;
 
     if (!pdfUrl) {
       return NextResponse.json(
-        { error: "Document has no pdfUrl/storageUrl" },
+        { error: "La boleta no tiene un archivo asociado" },
         { status: 400 }
       );
     }
@@ -215,14 +218,14 @@ export async function POST(request: NextRequest) {
           docRef,
           {
             status: "needs_review",
-            errorMessage: error.message ?? "Failed to download PDF",
+            errorMessage: "No se pudo descargar el archivo para procesarlo",
             updatedAt: new Date(),
           },
           log,
           "pdf_download_error"
         );
         return NextResponse.json(
-          { error: "Failed to download PDF" },
+          { error: "No se pudo descargar el archivo para procesarlo" },
           { status: 502 }
         );
       }
@@ -246,14 +249,14 @@ export async function POST(request: NextRequest) {
             docRef,
             {
               status: "needs_review",
-              errorMessage: error.message ?? "Failed to extract PDF text",
+              errorMessage: "No se pudo leer el texto del archivo",
               updatedAt: new Date(),
             },
             log,
             "text_extraction_error"
           );
           return NextResponse.json(
-            { error: "Failed to extract PDF text" },
+            { error: "No se pudo leer el texto del archivo" },
             { status: 502 }
           );
         }
@@ -271,7 +274,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!imageMimeType && (!fullText || !fullText.trim())) {
-      const errorMessage = "Extracted text was empty";
+      const errorMessage = "No se encontró texto para procesar en el archivo";
       await updateDocumentWithMetrics(
         docRef,
         {
@@ -371,7 +374,7 @@ export async function POST(request: NextRequest) {
         docRef,
         {
           status: "error",
-          errorMessage: error.message ?? "All parsers failed",
+          errorMessage: "No se pudo procesar la boleta",
           textExtract: fullText ?? null,
           updatedAt: new Date(),
         },
@@ -512,7 +515,7 @@ export async function POST(request: NextRequest) {
     }
     log.error("Parse route error", { error });
     return NextResponse.json(
-      { error: "Failed to parse document" },
+      { error: "No se pudo procesar la boleta" },
       { status: 500 }
     );
   }

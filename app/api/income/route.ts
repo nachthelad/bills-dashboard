@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
     log.error("Income GET error", { error });
     return NextResponse.json(
-      { error: "Failed to load income entries" },
+      { error: "No se pudieron cargar los ingresos" },
       { status: 500 }
     );
   }
@@ -56,14 +56,14 @@ export async function POST(request: NextRequest) {
     log = log.withContext({ userId: uid });
 
     const body = await request.json();
-    const name = (body.name ?? "").toString().trim() || "Unnamed";
+    const name = (body.name ?? "").toString().trim() || "Sin nombre";
     const amount = parseAmountInput(body.amount);
     const source = (body.source ?? "").toString().trim() || "Other";
     const dateString = body.date as string | undefined;
     const currency = ["ARS", "USD"].includes(body.currency) ? body.currency : "ARS";
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+      return NextResponse.json({ error: "El monto no es válido" }, { status: 400 });
     }
 
     const entryRef = await getAdminFirestore()
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
     log.error("Income POST error", { error });
     return NextResponse.json(
-      { error: "Failed to add income entry" },
+      { error: "No se pudo agregar el ingreso" },
       { status: 500 }
     );
   }
@@ -108,12 +108,12 @@ function serializeIncomeDoc(doc: DocumentSnapshot) {
     name:
       typeof raw.name === "string" && raw.name.trim().length > 0
         ? raw.name
-        : "Unnamed",
+        : "Sin nombre",
     amount: typeof raw.amount === "number" ? raw.amount : 0,
     source:
       typeof raw.source === "string" && raw.source.trim().length > 0
         ? raw.source
-        : "Unknown",
+        : "Sin fuente",
     date: toIsoDateTime(raw.date, fallbackDate) ?? fallbackDate,
     currency:
       typeof raw.currency === "string" && raw.currency.trim().length > 0

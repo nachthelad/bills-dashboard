@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
     log.error("Dashboard summary GET error", { error });
     return NextResponse.json(
-      { error: "Failed to load dashboard summary" },
+      { error: "No se pudo cargar el resumen del panel" },
       { status: 500 }
     );
   }
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         issues: parsed.error.issues,
       });
       return NextResponse.json(
-        { error: "Invalid dashboard summary" },
+        { error: "El resumen del panel no es válido" },
         { status: 400 }
       );
     }
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
     log.error("Dashboard summary POST error", { error });
     return NextResponse.json(
-      { error: "Failed to save summary" },
+      { error: "No se pudo guardar el resumen" },
       { status: 500 }
     );
   }

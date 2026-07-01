@@ -507,7 +507,7 @@ export async function POST(request: NextRequest) {
     if (authResponse) return authResponse;
 
     return NextResponse.json(
-      { error: "Failed to get insights" },
+      { error: "No se pudo generar el análisis" },
       { status: 500 }
     );
   }

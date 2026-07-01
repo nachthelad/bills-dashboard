@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     return NextResponse.json(await getOwnedRecurringExpense(uid, id));
   } catch (error) {
-    return handleRouteError(error, "Failed to load recurring expense");
+    return handleRouteError(error, "No se pudo cargar el gasto recurrente");
   }
 }
 
@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       getArgentinaToday()
     );
     if (!effectiveFrom) {
-      throw new CreditCardDataError(400, "Recurring expense already ended");
+      throw new CreditCardDataError(400, "El gasto recurrente ya finalizó");
     }
     const version = parseRecurringExpenseUpdateInput(
       await request.json(),
@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     await docRef.update({ versions, updatedAt: Timestamp.now() });
     return NextResponse.json(serializeRecurringExpense(await docRef.get()));
   } catch (error) {
-    return handleRouteError(error, "Failed to update recurring expense");
+    return handleRouteError(error, "No se pudo actualizar el gasto recurrente");
   }
 }
 
@@ -66,7 +66,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     const existing = await getOwnedRecurringExpense(uid, id);
     if (existing.endDate) {
-      throw new CreditCardDataError(400, "Recurring expense already ended");
+      throw new CreditCardDataError(400, "El gasto recurrente ya finalizó");
     }
     const docRef = getAdminFirestore()
       .collection("creditCardRecurringExpenses")
@@ -77,7 +77,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     });
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    return handleRouteError(error, "Failed to finish recurring expense");
+    return handleRouteError(error, "No se pudo finalizar el gasto recurrente");
   }
 }
 

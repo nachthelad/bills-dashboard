@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
     }
     log.error("hoaSummaries GET error", { error });
     return NextResponse.json(
-      { error: "Failed to load HOA summaries" },
+      { error: "No se pudieron cargar las expensas" },
       { status: 500 }
     );
   }

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.startDate.localeCompare(a.startDate));
     return NextResponse.json({ recurringExpenses });
   } catch (error) {
-    return handleRouteError(error, "Failed to load recurring expenses");
+    return handleRouteError(error, "No se pudieron cargar los gastos recurrentes");
   }
 }
 
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       status: 201,
     });
   } catch (error) {
-    return handleRouteError(error, "Failed to create recurring expense");
+    return handleRouteError(error, "No se pudo crear el gasto recurrente");
   }
 }
 

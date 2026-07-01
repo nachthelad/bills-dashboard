@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate));
     return NextResponse.json({ purchases });
   } catch (error) {
-    return handleRouteError(error, "Failed to load purchases");
+    return handleRouteError(error, "No se pudieron cargar las compras");
   }
 }
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       status: 201,
     });
   } catch (error) {
-    return handleRouteError(error, "Failed to create purchase");
+    return handleRouteError(error, "No se pudo crear la compra");
   }
 }
 

@@ -422,7 +422,7 @@ export function AddExpenseModal({
                 type="button"
                 size="icon"
                 variant="ghost"
-                aria-label="Confirm new category"
+                aria-label="Confirmar nueva categoría"
                 className="h-11 sm:h-9 w-11 sm:w-9 text-emerald-400 hover:text-emerald-300 shrink-0"
                 onClick={handleConfirmNewCategory}
                 disabled={addCategoryLoading || !newCategoryName.trim()}
@@ -433,7 +433,7 @@ export function AddExpenseModal({
                 type="button"
                 size="icon"
                 variant="ghost"
-                aria-label="Cancel new category"
+                aria-label="Cancelar nueva categoría"
                 className="h-11 sm:h-9 w-11 sm:w-9 text-muted-foreground shrink-0"
                 onClick={() => {
                   setAddingCategory(false);

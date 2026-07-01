@@ -38,6 +38,7 @@ import { toggleBillStatus } from "@/lib/billing-actions";
 import { CATEGORY_OPTIONS } from "@/config/billing/categories";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { getDocumentStatusLabel } from "@/lib/ui-labels";
 
 interface MobileDocumentsListProps {
   documents: BillDocument[];
@@ -106,7 +107,7 @@ export function MobileDocumentsList({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete document");
+        throw new Error("No se pudo eliminar la boleta");
       }
 
       onDeleteComplete?.();
@@ -198,7 +199,7 @@ export function MobileDocumentsList({
         <div className="flex gap-2">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Category" />
+              <SelectValue placeholder="Categoría" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas las categorías</SelectItem>
@@ -211,7 +212,7 @@ export function MobileDocumentsList({
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los estados</SelectItem>
@@ -261,7 +262,7 @@ export function MobileDocumentsList({
                           variant="outline"
                           className={`${statusStyles[doc.status] || ""}`}
                         >
-                          {doc.status === "needs_review" ? "Requiere revisión" : doc.status === "parsed" ? "Procesado" : doc.status === "pending" ? "Pendiente" : doc.status === "paid" ? "Pagado" : doc.status}
+                          {getDocumentStatusLabel(doc.status)}
                         </Badge>
                       </div>
                     </div>
@@ -301,7 +302,7 @@ export function MobileDocumentsList({
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      aria-label="Delete document"
+                      aria-label="Eliminar boleta"
                       onClick={() => confirmDelete(doc)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -343,7 +344,7 @@ export function MobileDocumentsList({
                       >
                         <a
                           href={doc.storageUrl}
-                          aria-label="Open PDF"
+                          aria-label="Abrir PDF"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -357,7 +358,7 @@ export function MobileDocumentsList({
                       className="h-8 w-8 p-0"
                       asChild
                     >
-                      <Link href={`/documents/${doc.id}`} aria-label="View document details">
+                      <Link href={`/documents/${doc.id}`} aria-label="Ver detalle de la boleta">
                         <ChevronRight className="h-4 w-4" />
                       </Link>
                     </Button>

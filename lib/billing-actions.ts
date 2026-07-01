@@ -15,6 +15,6 @@ export async function toggleBillStatus(
   });
 
   if (!response.ok) {
-    throw new Error("Failed to update document");
+    throw new Error("No se pudo actualizar la boleta");
   }
 }

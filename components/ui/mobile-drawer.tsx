@@ -60,7 +60,7 @@ export function MobileDrawer({
           </div>
           <Drawer.Close className="ring-offset-background focus:ring-ring absolute right-4 top-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none">
             <XIcon className="size-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">Cerrar</span>
           </Drawer.Close>
         </Drawer.Content>
       </Drawer.Portal>

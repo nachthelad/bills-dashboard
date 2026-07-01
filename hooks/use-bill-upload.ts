@@ -90,7 +90,7 @@ export function useBillUpload(onComplete?: () => void): UseBillUploadResult {
       }
 
       if (!storageUrl) {
-        throw new Error("Unable to upload file");
+        throw new Error("No se pudo cargar el archivo");
       }
 
       // 3. Create Document Record
@@ -117,7 +117,7 @@ export function useBillUpload(onComplete?: () => void): UseBillUploadResult {
       }, 2000);
     } catch (err) {
       console.error("Upload error:", err);
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(err instanceof Error ? err.message : "No se pudo cargar el archivo");
       setProgress(0);
     } finally {
       setIsUploading(false);

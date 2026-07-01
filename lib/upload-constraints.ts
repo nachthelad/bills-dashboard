@@ -39,7 +39,7 @@ export type UploadValidationResult =
     }
 
 export function describeAllowedFileTypes() {
-  return "PDF or image files (PNG, JPG, HEIC, WebP, TIFF)"
+  return "Archivos PDF o imágenes (PNG, JPG, HEIC, WebP, TIFF)"
 }
 
 export function formatMaxUploadSize() {
@@ -76,14 +76,14 @@ export function validateUploadConstraints(input: { size: number; type?: string |
     return {
       ok: false,
       code: "FILE_EMPTY",
-      message: "The selected file is empty.",
+      message: "El archivo seleccionado está vacío.",
     }
   }
   if (input.size > MAX_UPLOAD_BYTES) {
     return {
       ok: false,
       code: "FILE_TOO_LARGE",
-      message: `Files must be ${formatMaxUploadSize()} or smaller.`,
+      message: `El archivo debe pesar ${formatMaxUploadSize()} o menos.`,
       details: { limitBytes: MAX_UPLOAD_BYTES },
     }
   }
@@ -91,7 +91,7 @@ export function validateUploadConstraints(input: { size: number; type?: string |
     return {
       ok: false,
       code: "UNSUPPORTED_TYPE",
-      message: `Only ${describeAllowedFileTypes()} are supported.`,
+      message: `Solo se admiten ${describeAllowedFileTypes()}.`,
     }
   }
   return { ok: true }

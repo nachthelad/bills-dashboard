@@ -35,7 +35,7 @@ async function getAuthorizedDocument(
   if (!docSnapshot.exists) {
     return {
       errorResponse: NextResponse.json(
-        { error: "Document not found" },
+        { error: "No se encontró la boleta" },
         { status: 404 }
       ),
     };
@@ -44,7 +44,10 @@ async function getAuthorizedDocument(
   const documentData = docSnapshot.data();
   if (documentData?.userId && documentData.userId !== uid) {
     return {
-      errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      errorResponse: NextResponse.json(
+        { error: "No tenés permiso para realizar esta acción" },
+        { status: 403 }
+      ),
     };
   }
 
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     log.error("Document GET error", { error });
     return NextResponse.json(
-      { error: "Failed to fetch document" },
+      { error: "No se pudo cargar la boleta" },
       { status: 500 }
     );
   }
@@ -215,7 +218,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
     log.error("Document PATCH error", { error });
     return NextResponse.json(
-      { error: "Failed to update document" },
+      { error: "No se pudo actualizar la boleta" },
       { status: 500 }
     );
   }
@@ -246,7 +249,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
     log.error("Document DELETE error", { error });
     return NextResponse.json(
-      { error: "Failed to delete document" },
+      { error: "No se pudo eliminar la boleta" },
       { status: 500 }
     );
   }
