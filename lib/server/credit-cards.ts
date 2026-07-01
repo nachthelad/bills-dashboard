@@ -9,6 +9,8 @@ import {
   type CreditCardCurrency,
   type CreditCardCycle,
   type CreditCardPurchase,
+  type CreditCardRecurringExpense,
+  type CreditCardRecurringExpenseVersion,
   type CreditCardStatus,
 } from "@/lib/credit-card-utils";
 import { parseAmountInput } from "@/lib/amount-parser";
@@ -95,6 +97,48 @@ export function parsePurchaseInput(body: Record<string, unknown>) {
   };
 }
 
+export function parseRecurringExpenseInput(body: Record<string, unknown>) {
+  const cardId = parseRequiredString(body.cardId, "Card required");
+  const name = parseRequiredString(body.name, "Recurring expense name required");
+  const startDate = parseIsoDay(body.startDate, "Invalid start date");
+  const monthlyAmount = parseAmountInput(body.monthlyAmount);
+  const currency = parseCurrency(body.currency);
+
+  if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) {
+    throw new CreditCardDataError(400, "Amount must be greater than zero");
+  }
+
+  return {
+    cardId,
+    startDate,
+    anchorDay: Number(startDate.slice(8, 10)),
+    version: {
+      effectiveFrom: startDate,
+      name,
+      monthlyAmount,
+      currency,
+    } satisfies CreditCardRecurringExpenseVersion,
+  };
+}
+
+export function parseRecurringExpenseUpdateInput(
+  body: Record<string, unknown>,
+  effectiveFrom: string
+) {
+  const name = parseRequiredString(body.name, "Recurring expense name required");
+  const monthlyAmount = parseAmountInput(body.monthlyAmount);
+  const currency = parseCurrency(body.currency);
+  if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) {
+    throw new CreditCardDataError(400, "Amount must be greater than zero");
+  }
+  return {
+    effectiveFrom,
+    name,
+    monthlyAmount,
+    currency,
+  } satisfies CreditCardRecurringExpenseVersion;
+}
+
 export async function getOwnedCard(
   uid: string,
   cardId: string,
@@ -145,6 +189,23 @@ export async function getOwnedPurchase(uid: string, purchaseId: string) {
     throw new CreditCardDataError(403, "Forbidden");
   }
   return serializePurchase(snapshot);
+}
+
+export async function getOwnedRecurringExpense(
+  uid: string,
+  recurringExpenseId: string
+) {
+  const snapshot = await getAdminFirestore()
+    .collection("creditCardRecurringExpenses")
+    .doc(recurringExpenseId)
+    .get();
+  if (!snapshot.exists) {
+    throw new CreditCardDataError(404, "Recurring expense not found");
+  }
+  if (snapshot.data()?.userId !== uid) {
+    throw new CreditCardDataError(403, "Forbidden");
+  }
+  return serializeRecurringExpense(snapshot);
 }
 
 export async function resolveFirstPeriodMonthForCard(
@@ -214,6 +275,60 @@ export function serializePurchase(doc: DocumentSnapshot): CreditCardPurchase {
     createdAt: toIsoDateTime(raw.createdAt),
     updatedAt: toIsoDateTime(raw.updatedAt),
   };
+}
+
+export function serializeRecurringExpense(
+  doc: DocumentSnapshot
+): CreditCardRecurringExpense {
+  const raw = (doc.data() ?? {}) as Record<string, unknown>;
+  const base = serializeSnapshot(doc);
+  const startDate = typeof raw.startDate === "string" ? raw.startDate : "";
+  const versions = Array.isArray(raw.versions)
+    ? raw.versions.flatMap((candidate) => {
+        if (!candidate || typeof candidate !== "object") return [];
+        const version = candidate as Record<string, unknown>;
+        if (
+          typeof version.effectiveFrom !== "string" ||
+          typeof version.name !== "string" ||
+          typeof version.monthlyAmount !== "number"
+        ) {
+          return [];
+        }
+        return [
+          {
+            effectiveFrom: version.effectiveFrom,
+            name: version.name,
+            monthlyAmount: version.monthlyAmount,
+            currency:
+              version.currency === "USD" ? ("USD" as const) : ("ARS" as const),
+          },
+        ];
+      })
+    : [];
+  return {
+    id: base.id,
+    cardId: typeof raw.cardId === "string" ? raw.cardId : "",
+    startDate,
+    anchorDay:
+      typeof raw.anchorDay === "number"
+        ? raw.anchorDay
+        : Number(startDate.slice(8, 10)),
+    endDate: typeof raw.endDate === "string" ? raw.endDate : null,
+    versions,
+    createdAt: toIsoDateTime(raw.createdAt),
+    updatedAt: toIsoDateTime(raw.updatedAt),
+  };
+}
+
+export function getArgentinaToday() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  return `${values.get("year")}-${values.get("month")}-${values.get("day")}`;
 }
 
 export function toErrorResponse(error: unknown) {

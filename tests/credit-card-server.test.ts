@@ -5,6 +5,8 @@ import {
   CreditCardDataError,
   parseCycleInput,
   parsePurchaseInput,
+  parseRecurringExpenseInput,
+  parseRecurringExpenseUpdateInput,
 } from "../lib/server/credit-cards";
 
 test("parseCycleInput accepts a closing date from the prior month", () => {
@@ -82,5 +84,41 @@ test("parsePurchaseInput accepts Argentine formatted purchase amounts", () => {
       installments: 1,
     }).totalAmount,
     18160.06
+  );
+});
+
+test("parseRecurringExpenseInput stores the anchor day and Argentine amount", () => {
+  assert.deepEqual(
+    parseRecurringExpenseInput({
+      cardId: "visa",
+      name: "Netflix",
+      startDate: "2026-01-31",
+      monthlyAmount: "18.160,06",
+      currency: "ARS",
+    }),
+    {
+      cardId: "visa",
+      startDate: "2026-01-31",
+      anchorDay: 31,
+      version: {
+        effectiveFrom: "2026-01-31",
+        name: "Netflix",
+        monthlyAmount: 18160.06,
+        currency: "ARS",
+      },
+    }
+  );
+});
+
+test("parseRecurringExpenseUpdateInput rejects non-positive amounts", () => {
+  assert.throws(
+    () =>
+      parseRecurringExpenseUpdateInput(
+        { name: "Netflix", monthlyAmount: 0, currency: "ARS" },
+        "2026-07-31"
+      ),
+    (error) =>
+      error instanceof CreditCardDataError &&
+      error.message === "Amount must be greater than zero"
   );
 });

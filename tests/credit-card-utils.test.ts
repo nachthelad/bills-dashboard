@@ -5,12 +5,16 @@ import {
   addMonthsToPeriodMonth,
   getFirstPeriodMonthFromPurchaseDate,
   groupInstallmentsByPeriod,
+  getNextRecurringOccurrenceDate,
+  getRecurringOccurrenceDate,
+  projectRecurringExpenseCharges,
   projectPurchaseInstallments,
   resolveFirstPeriodMonth,
   splitAmountIntoInstallments,
   suggestNextCycle,
   type CreditCardCycle,
   type CreditCardPurchase,
+  type CreditCardRecurringExpense,
 } from "../lib/credit-card-utils";
 
 test("splitAmountIntoInstallments keeps cents exact and puts remainder in last installment", () => {
@@ -164,7 +168,9 @@ test("groupInstallmentsByPeriod lists carried installments first and keeps date 
   );
 
   assert.deepEqual(
-    julyProjection?.installments.map((installment) => installment.purchaseId),
+    julyProjection?.installments
+      .filter((installment) => installment.kind === "installment")
+      .map((installment) => installment.purchaseId),
     ["older-carried", "newer-carried", "new-installments", "single"]
   );
 });
@@ -183,6 +189,97 @@ test("suggestNextCycle clamps dates for shorter months", () => {
       closingDate: "2026-02-28",
       dueDate: "2026-03-05",
     }
+  );
+});
+
+test("recurring occurrence keeps its anchor day after shorter months", () => {
+  assert.deepEqual(
+    [0, 1, 2].map((offset) =>
+      getRecurringOccurrenceDate("2026-01-31", 31, offset)
+    ),
+    ["2026-01-31", "2026-02-28", "2026-03-31"]
+  );
+});
+
+test("next recurring occurrence is strictly after today", () => {
+  assert.equal(
+    getNextRecurringOccurrenceDate(makeRecurringExpense(), "2026-06-30"),
+    "2026-07-30"
+  );
+});
+
+test("recurring projections span the current period and next eleven months", () => {
+  const charges = projectRecurringExpenseCharges(
+    makeRecurringExpense({
+      startDate: "2026-06-15",
+      anchorDay: 15,
+      versions: [
+        {
+          effectiveFrom: "2026-06-15",
+          name: "Netflix",
+          monthlyAmount: 100,
+          currency: "ARS",
+        },
+      ],
+    }),
+    [],
+    "2026-06-01"
+  );
+
+  assert.equal(charges.length, 11);
+  assert.equal(charges[0].periodMonth, "2026-07");
+  assert.equal(charges.at(-1)?.periodMonth, "2027-05");
+});
+
+test("recurring versions preserve old amounts and apply changes forward", () => {
+  const projections = groupInstallmentsByPeriod(
+    [],
+    [],
+    [
+      makeRecurringExpense({
+        startDate: "2026-05-10",
+        anchorDay: 10,
+        versions: [
+          {
+            effectiveFrom: "2026-05-10",
+            name: "Netflix",
+            monthlyAmount: 100,
+            currency: "ARS",
+          },
+          {
+            effectiveFrom: "2026-07-10",
+            name: "Netflix",
+            monthlyAmount: 150,
+            currency: "ARS",
+          },
+        ],
+      }),
+    ],
+    "2026-06-01"
+  );
+
+  assert.equal(
+    projections.find((projection) => projection.periodMonth === "2026-06")
+      ?.totals.ARS,
+    100
+  );
+  assert.equal(
+    projections.find((projection) => projection.periodMonth === "2026-08")
+      ?.totals.ARS,
+    150
+  );
+});
+
+test("ending a recurrence keeps charges through the end date", () => {
+  const charges = projectRecurringExpenseCharges(
+    makeRecurringExpense({ endDate: "2026-07-30" }),
+    [],
+    "2026-06-01"
+  );
+
+  assert.deepEqual(
+    charges.map((charge) => charge.purchaseDate),
+    ["2026-06-30", "2026-07-30"]
   );
 });
 
@@ -209,6 +306,27 @@ function makeCycle(overrides: Partial<CreditCardCycle> = {}): CreditCardCycle {
     periodMonth: "2026-06",
     closingDate: "2026-05-28",
     dueDate: "2026-06-07",
+    ...overrides,
+  };
+}
+
+function makeRecurringExpense(
+  overrides: Partial<CreditCardRecurringExpense> = {}
+): CreditCardRecurringExpense {
+  return {
+    id: "recurring",
+    cardId: "visa",
+    startDate: "2026-06-30",
+    anchorDay: 30,
+    endDate: null,
+    versions: [
+      {
+        effectiveFrom: "2026-06-30",
+        name: "Netflix",
+        monthlyAmount: 100,
+        currency: "ARS",
+      },
+    ],
     ...overrides,
   };
 }

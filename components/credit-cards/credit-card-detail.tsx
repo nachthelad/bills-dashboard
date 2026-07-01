@@ -49,10 +49,13 @@ import {
   createCreditCardCycle,
   createCreditCardPurchase,
   createCreditCardPurchases,
+  createCreditCardRecurringExpense,
   deleteCreditCardCycle,
   deleteCreditCardPurchase,
+  finishCreditCardRecurringExpense,
   updateCreditCardCycle,
   updateCreditCardPurchase,
+  updateCreditCardRecurringExpense,
 } from "@/lib/credit-cards-client";
 import {
   formatPeriodMonth,
@@ -60,6 +63,7 @@ import {
   suggestNextCycle,
   type CreditCardCycle,
   type CreditCardPurchase,
+  type CreditCardRecurringExpense,
 } from "@/lib/credit-card-utils";
 import { formatAmount } from "@/lib/format-currency";
 import { formatDate } from "@/lib/utils";
@@ -79,6 +83,7 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
     cards,
     cycles,
     purchases,
+    recurringExpenses,
     rate,
     loading,
     error,
@@ -91,8 +96,11 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
   const [editingCycle, setEditingCycle] = useState<CreditCardCycle | null>(null);
   const [editingPurchase, setEditingPurchase] =
     useState<CreditCardPurchase | null>(null);
+  const [editingRecurringExpense, setEditingRecurringExpense] =
+    useState<CreditCardRecurringExpense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<
     | { type: "purchase"; id: string }
+    | { type: "recurring"; id: string }
     | { type: "cycle"; id: string }
     | null
   >(null);
@@ -109,11 +117,25 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
   const cardPurchases = purchases
     .filter((purchase) => purchase.cardId === cardId)
     .sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate));
-  const projections = useMemo(
-    () => groupInstallmentsByPeriod(cardPurchases, cardCycles),
-    [cardCycles, cardPurchases]
+  const cardRecurringExpenses = recurringExpenses.filter(
+    (expense) => expense.cardId === cardId
+  );
+  const activeRecurringExpenseIds = new Set(
+    cardRecurringExpenses
+      .filter((expense) => !expense.endDate)
+      .map((expense) => expense.id)
   );
   const today = getLocalTodayIso();
+  const projections = useMemo(
+    () =>
+      groupInstallmentsByPeriod(
+        cardPurchases,
+        cardCycles,
+        cardRecurringExpenses,
+        today
+      ),
+    [cardCycles, cardPurchases, cardRecurringExpenses, today]
+  );
   const currentPeriod = today.slice(0, 7);
   const isPastProjection = (projection: (typeof projections)[number]) =>
     projection.cycle
@@ -146,18 +168,62 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
 
   const handleSavePurchase = async (value: PurchaseFormValue) => {
     const token = await getToken();
-    if (editingPurchase) {
-      await updateCreditCardPurchase(token, editingPurchase.id, value);
+    const purchaseInput = {
+      cardId: value.cardId,
+      name: value.name,
+      purchaseDate: value.purchaseDate,
+      totalAmount: value.totalAmount,
+      currency: value.currency,
+      installments: value.installments,
+    };
+    if (editingRecurringExpense) {
+      await updateCreditCardRecurringExpense(
+        token,
+        editingRecurringExpense.id,
+        {
+          name: value.name,
+          monthlyAmount: value.totalAmount,
+          currency: value.currency,
+        }
+      );
+    } else if (editingPurchase) {
+      await updateCreditCardPurchase(token, editingPurchase.id, purchaseInput);
+    } else if (value.repeatsMonthly) {
+      await createCreditCardRecurringExpense(token, {
+        cardId: value.cardId,
+        name: value.name,
+        startDate: value.purchaseDate,
+        monthlyAmount: value.totalAmount,
+        currency: value.currency,
+      });
     } else {
-      await createCreditCardPurchase(token, value);
+      await createCreditCardPurchase(token, purchaseInput);
     }
     setEditingPurchase(null);
+    setEditingRecurringExpense(null);
     await loadData();
   };
 
   const handleCreatePurchases = async (values: PurchaseFormValue[]) => {
     const token = await getToken();
-    await createCreditCardPurchases(token, values);
+    const purchases = values
+      .filter((value) => !value.repeatsMonthly)
+      .map(({ repeatsMonthly: _repeatsMonthly, ...value }) => value);
+    const recurring = values.filter((value) => value.repeatsMonthly);
+    await Promise.all([
+      purchases.length
+        ? createCreditCardPurchases(token, purchases)
+        : Promise.resolve([]),
+      ...recurring.map((value) =>
+        createCreditCardRecurringExpense(token, {
+          cardId: value.cardId,
+          name: value.name,
+          startDate: value.purchaseDate,
+          monthlyAmount: value.totalAmount,
+          currency: value.currency,
+        })
+      ),
+    ]);
     await loadData();
   };
 
@@ -168,6 +234,8 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
       const token = await getToken();
       if (deleteTarget.type === "purchase") {
         await deleteCreditCardPurchase(token, deleteTarget.id);
+      } else if (deleteTarget.type === "recurring") {
+        await finishCreditCardRecurringExpense(token, deleteTarget.id);
       } else {
         await deleteCreditCardCycle(token, deleteTarget.id);
       }
@@ -271,7 +339,8 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
           <div>
             <h2 className="text-xl font-semibold">Cuotas proyectadas</h2>
             <p className="text-sm text-muted-foreground">
-              Los meses sin vencimiento cargado siguen visibles como proyección.
+              Incluye cuotas y gastos recurrentes; los meses sin vencimiento
+              siguen visibles como proyección.
             </p>
           </div>
           {pastProjectionCount > 0 ? (
@@ -431,7 +500,11 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
                             <div className="divide-y px-4 py-1">
                               {projection.installments.map((installment) => (
                                 <div
-                                  key={`${installment.purchaseId}_${installment.installmentNumber}`}
+                                  key={
+                                    installment.kind === "installment"
+                                      ? `${installment.purchaseId}_${installment.installmentNumber}`
+                                      : `${installment.recurringExpenseId}_${installment.purchaseDate}`
+                                  }
                                   className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                 >
                                   <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
@@ -439,9 +512,10 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
                                       {formatDate(installment.purchaseDate)}
                                     </span>
                                     <span className="text-muted-foreground">
-                                      {installment.purchaseName} · cuota{" "}
-                                      {installment.installmentNumber}/
-                                      {installment.installmentCount}
+                                      {installment.purchaseName} ·{" "}
+                                      {installment.kind === "installment"
+                                        ? `cuota ${installment.installmentNumber}/${installment.installmentCount}`
+                                        : "Recurrente"}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-2 sm:justify-end">
@@ -452,40 +526,75 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
                                         showAmounts
                                       )}
                                     </span>
-                                    <div className="flex items-center gap-1">
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        aria-label={`Editar compra ${installment.purchaseName}`}
-                                        onClick={() => {
-                                          const purchase = cardPurchases.find(
-                                            (candidate) =>
-                                              candidate.id ===
-                                              installment.purchaseId
-                                          );
-                                          if (!purchase) return;
-                                          setEditingPurchase(purchase);
-                                          setPurchaseModalOpen(true);
-                                        }}
-                                      >
-                                        <Pencil />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        aria-label={`Eliminar compra ${installment.purchaseName}`}
-                                        onClick={() =>
-                                          setDeleteTarget({
-                                            type: "purchase",
-                                            id: installment.purchaseId,
-                                          })
-                                        }
-                                      >
-                                        <Trash2 />
-                                      </Button>
-                                    </div>
+                                    {installment.kind === "installment" ||
+                                    activeRecurringExpenseIds.has(
+                                      installment.recurringExpenseId
+                                    ) ? (
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon-sm"
+                                          aria-label={`Editar ${
+                                            installment.kind === "recurring"
+                                              ? "gasto recurrente"
+                                              : "compra"
+                                          } ${installment.purchaseName}`}
+                                          onClick={() => {
+                                            if (
+                                              installment.kind === "recurring"
+                                            ) {
+                                              const expense =
+                                                cardRecurringExpenses.find(
+                                                  (candidate) =>
+                                                    candidate.id ===
+                                                    installment.recurringExpenseId
+                                                );
+                                              if (!expense) return;
+                                              setEditingRecurringExpense(
+                                                expense
+                                              );
+                                            } else {
+                                              const purchase =
+                                                cardPurchases.find(
+                                                  (candidate) =>
+                                                    candidate.id ===
+                                                    installment.purchaseId
+                                                );
+                                              if (!purchase) return;
+                                              setEditingPurchase(purchase);
+                                            }
+                                            setPurchaseModalOpen(true);
+                                          }}
+                                        >
+                                          <Pencil />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon-sm"
+                                          aria-label={`${
+                                            installment.kind === "recurring"
+                                              ? "Finalizar gasto recurrente"
+                                              : "Eliminar compra"
+                                          } ${installment.purchaseName}`}
+                                          onClick={() =>
+                                            setDeleteTarget({
+                                              type:
+                                                installment.kind === "recurring"
+                                                  ? "recurring"
+                                                  : "purchase",
+                                              id:
+                                                installment.kind === "recurring"
+                                                  ? installment.recurringExpenseId
+                                                  : installment.purchaseId,
+                                            })
+                                          }
+                                        >
+                                          <Trash2 />
+                                        </Button>
+                                      </div>
+                                    ) : null}
                                   </div>
                                 </div>
                               ))}
@@ -574,10 +683,14 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
         open={purchaseModalOpen}
         onOpenChange={(open) => {
           setPurchaseModalOpen(open);
-          if (!open) setEditingPurchase(null);
+          if (!open) {
+            setEditingPurchase(null);
+            setEditingRecurringExpense(null);
+          }
         }}
         cards={[card]}
         purchase={editingPurchase}
+        recurringExpense={editingRecurringExpense}
         initialCardId={card.id}
         onSave={handleSavePurchase}
         onSaveMany={handleCreatePurchases}
@@ -589,11 +702,17 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              ¿Eliminar {deleteTarget?.type === "cycle" ? "período" : "compra"}?
+              {deleteTarget?.type === "recurring"
+                ? "¿Finalizar gasto recurrente?"
+                : `¿Eliminar ${
+                    deleteTarget?.type === "cycle" ? "período" : "compra"
+                  }?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.type === "cycle"
                 ? "Las cuotas conservarán su proyección, pero este vencimiento dejará de figurar como confirmado."
+                : deleteTarget?.type === "recurring"
+                  ? "Los cobros hasta hoy conservarán su historial y los futuros dejarán de proyectarse."
                 : "La compra dejará de aparecer en todas sus cuotas proyectadas."}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -605,7 +724,13 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
               disabled={deleteLoading}
               onClick={handleDelete}
             >
-              {deleteLoading ? "Eliminando..." : "Eliminar"}
+              {deleteLoading
+                ? deleteTarget?.type === "recurring"
+                  ? "Finalizando..."
+                  : "Eliminando..."
+                : deleteTarget?.type === "recurring"
+                  ? "Finalizar"
+                  : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

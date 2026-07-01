@@ -43,6 +43,7 @@ import {
   createCreditCardCycle,
   createCreditCardPurchase,
   createCreditCardPurchases,
+  createCreditCardRecurringExpense,
   updateCreditCard,
 } from "@/lib/credit-cards-client";
 import {
@@ -72,6 +73,7 @@ export function CreditCardsOverview() {
     cards,
     cycles,
     purchases,
+    recurringExpenses,
     rate,
     rateLoading,
     loading,
@@ -89,16 +91,16 @@ export function CreditCardsOverview() {
   const [cycleCard, setCycleCard] = useState<CreditCard | null>(null);
 
   const activeCards = cards.filter((card) => card.status === "active");
+  const currentPeriod = toLocalPeriodMonth(new Date());
+  const today = toLocalIsoDate(new Date());
   const cardById = useMemo(
     () => new Map(cards.map((card) => [card.id, card])),
     [cards]
   );
   const projections = useMemo(
-    () => groupInstallmentsByPeriod(purchases, cycles),
-    [cycles, purchases]
+    () => groupInstallmentsByPeriod(purchases, cycles, recurringExpenses, today),
+    [cycles, purchases, recurringExpenses, today]
   );
-  const currentPeriod = toLocalPeriodMonth(new Date());
-  const today = toLocalIsoDate(new Date());
   const upcoming = projections
     .filter(
       (projection) =>
@@ -142,13 +144,47 @@ export function CreditCardsOverview() {
 
   const handleCreatePurchase = async (value: PurchaseFormValue) => {
     const token = await getToken();
-    await createCreditCardPurchase(token, value);
+    if (value.repeatsMonthly) {
+      await createCreditCardRecurringExpense(token, {
+        cardId: value.cardId,
+        name: value.name,
+        startDate: value.purchaseDate,
+        monthlyAmount: value.totalAmount,
+        currency: value.currency,
+      });
+    } else {
+      await createCreditCardPurchase(token, {
+        cardId: value.cardId,
+        name: value.name,
+        purchaseDate: value.purchaseDate,
+        totalAmount: value.totalAmount,
+        currency: value.currency,
+        installments: value.installments,
+      });
+    }
     await loadData();
   };
 
   const handleCreatePurchases = async (values: PurchaseFormValue[]) => {
     const token = await getToken();
-    await createCreditCardPurchases(token, values);
+    const purchases = values
+      .filter((value) => !value.repeatsMonthly)
+      .map(({ repeatsMonthly: _repeatsMonthly, ...value }) => value);
+    const recurring = values.filter((value) => value.repeatsMonthly);
+    await Promise.all([
+      purchases.length
+        ? createCreditCardPurchases(token, purchases)
+        : Promise.resolve([]),
+      ...recurring.map((value) =>
+        createCreditCardRecurringExpense(token, {
+          cardId: value.cardId,
+          name: value.name,
+          startDate: value.purchaseDate,
+          monthlyAmount: value.totalAmount,
+          currency: value.currency,
+        })
+      ),
+    ]);
     await loadData();
   };
 
@@ -285,8 +321,8 @@ export function CreditCardsOverview() {
                           <span>
                             {projection.installments.length}{" "}
                             {projection.installments.length === 1
-                              ? "cuota"
-                              : "cuotas"}
+                              ? "cargo"
+                              : "cargos"}
                           </span>
                           <Button variant="ghost" size="sm" asChild>
                             <Link href={`/credit-cards/${card.id}`}>
@@ -307,7 +343,7 @@ export function CreditCardsOverview() {
             <div>
               <h2 className="text-xl font-semibold">Línea de compromisos</h2>
               <p className="text-sm text-muted-foreground">
-                Se extiende hasta terminar la cuota más larga registrada.
+                Incluye cuotas y gastos recurrentes proyectados por 12 meses.
               </p>
             </div>
             {timeline.length === 0 ? (
