@@ -15,6 +15,15 @@ import {
   useAmountVisibility,
 } from "@/components/amount-visibility";
 
+const DOCUMENT_STATUS_LABELS: Record<string, string> = {
+  pending: "Pendiente",
+  parsing: "Procesando",
+  parsed: "Procesado",
+  needs_review: "Requiere revisión",
+  paid: "Pagado",
+  error: "Error",
+};
+
 export default function DocumentDetailPage() {
   const { user } = useAuth();
   const params = useParams();
@@ -275,7 +284,8 @@ export default function DocumentDetailPage() {
                 <AmountVisibilityToggle />
               </div>
               <p className="text-sm text-muted-foreground">
-                Estado: {document.status}
+                Estado:{" "}
+                {DOCUMENT_STATUS_LABELS[document.status] ?? document.status}
               </p>
             </div>
           </div>
@@ -288,7 +298,7 @@ export default function DocumentDetailPage() {
               {isParserBusy ? (
                 <>
                   <span className="animate-spin mr-2 border-2 border-current border-t-transparent rounded-full w-4 h-4" />
-                  Parsing...
+                  Procesando...
                 </>
               ) : hasParsedText ? (
                 "Re-procesar"

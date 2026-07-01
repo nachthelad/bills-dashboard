@@ -10,6 +10,7 @@ Finance tracker PWA built with Next.js 16, React 19, Tailwind CSS 4, Radix UI (s
 - Branch naming: `feat/<description>`, `fix/<description>`, `chore/<description>`
 - Commit using Conventional Commits: `feat:`, `fix:`, `chore:`, `refactor:`, etc.
 - PRs always target `main`.
+- When asked to publish or push changes, use direct `git` commands only. Do not use Yeet or other publishing wrappers.
 
 ## Dev commands
 
