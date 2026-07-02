@@ -1,5 +1,5 @@
 import { SettingsForm } from "@/components/settings/settings-form"
-import { Settings } from "lucide-react"
+import { BudgetSettings } from "@/components/budget/budget-settings"
 
 export default function SettingsPage() {
   return (
@@ -9,11 +9,12 @@ export default function SettingsPage() {
           Configuración
         </h1>
         <p className="text-muted-foreground max-w-3xl">
-          Administrá tus preferencias, apariencia y configuración de cuenta.
+          Definí tu plan de ahorro y administrá las preferencias de la cuenta.
         </p>
       </div>
 
-      <div className="max-w-2xl">
+      <div className="max-w-4xl space-y-6">
+        <BudgetSettings />
         <SettingsForm />
       </div>
     </div>
