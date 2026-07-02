@@ -97,7 +97,7 @@ export function BottomNav() {
           <SheetHeader>
             <SheetTitle>Más opciones</SheetTitle>
             <SheetDescription>
-              Accedé a boletas, expensas y configuración.
+              Accedé a configuración, ingresos y expensas.
             </SheetDescription>
           </SheetHeader>
           <div className="flex flex-col gap-2 px-4">
