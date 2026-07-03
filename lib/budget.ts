@@ -2,18 +2,46 @@ export const BUDGET_TIME_ZONE = "America/Argentina/Buenos_Aires";
 export const PERIOD_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export type SavingsMode = "fixed" | "percentage";
+export type FundingMode = "planned" | "cash";
 export type BudgetStatus = "good" | "tight" | "over" | "incomplete";
 export type FixedExpenseStatus = "pending" | "paid";
+export type MoneyCurrency = "ARS" | "USD" | "USDT";
+export type ForeignCurrency = Exclude<MoneyCurrency, "ARS">;
 
 export type BudgetPreferences = {
   expectedIncome: number;
   savingsMode: SavingsMode;
   savingsValue: number;
+  fundingMode: FundingMode;
+  arsBufferAmount: number;
 };
 
 export type MonthlyBudgetConfig = BudgetPreferences & {
   month: string;
   configured: boolean;
+  openingArsBalance: number | null;
+};
+
+export type IncomeSource = {
+  id: string;
+  name: string;
+  currency: MoneyCurrency;
+  expectedAmount: number;
+  isVariable: boolean;
+  isActive: boolean;
+};
+
+export type CurrencyConversion = {
+  id: string;
+  date: string;
+  fromCurrency: ForeignCurrency;
+  fromAmount: number;
+  suggestedRateSource: "binance_p2p" | "manual" | "other";
+  suggestedRate: number | null;
+  usedRate: number;
+  arsReceived: number;
+  relatedIncomeSourceId: string | null;
+  note: string | null;
 };
 
 export type FixedExpense = {
@@ -82,6 +110,18 @@ export type MonthlyBudgetSummary = {
     nextMonthCardCommitted: number;
     nextMonthCardCommittedUsd: number;
   };
+  funding: {
+    mode: FundingMode;
+    openingArsBalance: number | null;
+    directArsIncome: number;
+    convertedArs: number;
+    fundedArs: number;
+    coverageTarget: number;
+    conversionNeededArs: number;
+    foreignReceived: Record<ForeignCurrency, number>;
+    foreignConverted: Record<ForeignCurrency, number>;
+    foreignAvailable: Record<ForeignCurrency, number>;
+  };
   fixedExpenses: FixedExpenseSummary[];
   limits: SpendingLimitSummary[];
   alerts: BudgetAlert[];
@@ -92,6 +132,75 @@ export type MonthlyBudgetSummary = {
     usdRateUpdatedAt: string | null;
   };
 };
+
+export type ForeignBalanceInput = {
+  currency: MoneyCurrency;
+  amount: number;
+};
+
+export function calculateForeignBalances(
+  income: ForeignBalanceInput[],
+  conversions: Array<Pick<CurrencyConversion, "fromCurrency" | "fromAmount">>
+) {
+  const received: Record<ForeignCurrency, number> = { USD: 0, USDT: 0 };
+  const converted: Record<ForeignCurrency, number> = { USD: 0, USDT: 0 };
+  for (const entry of income) {
+    if (entry.currency !== "ARS") {
+      received[entry.currency] += entry.amount;
+    }
+  }
+  for (const conversion of conversions) {
+    converted[conversion.fromCurrency] += conversion.fromAmount;
+  }
+  return {
+    received,
+    converted,
+    available: {
+      USD: fromCents(toCents(received.USD) - toCents(converted.USD)),
+      USDT: fromCents(toCents(received.USDT) - toCents(converted.USDT)),
+    },
+  };
+}
+
+export function calculateCashFunding(input: {
+  openingArsBalance: number;
+  directArsIncome: number;
+  convertedArs: number;
+  fixedExpenses: number;
+  committedInstallments: number;
+  variableSpent: number;
+  variableCoverage: number;
+  arsBufferAmount: number;
+  daysRemaining: number;
+}) {
+  const fundedArsCents =
+    toCents(input.openingArsBalance) +
+    toCents(input.directArsIncome) +
+    toCents(input.convertedArs);
+  const availableCents =
+    fundedArsCents -
+    toCents(input.fixedExpenses) -
+    toCents(input.committedInstallments) -
+    toCents(input.variableSpent);
+  const coverageTargetCents =
+    toCents(input.fixedExpenses) +
+    toCents(input.committedInstallments) +
+    toCents(input.variableCoverage) +
+    toCents(input.arsBufferAmount);
+  return {
+    fundedArs: fromCents(fundedArsCents),
+    available: fromCents(availableCents),
+    dailyAvailable: fromCents(
+      input.daysRemaining > 0
+        ? Math.floor(availableCents / input.daysRemaining)
+        : availableCents
+    ),
+    coverageTarget: fromCents(coverageTargetCents),
+    conversionNeededArs: fromCents(
+      Math.max(0, coverageTargetCents - fundedArsCents)
+    ),
+  };
+}
 
 type MonthlyBudgetCalculationInput = {
   expectedIncome: number;
@@ -223,7 +332,7 @@ export function resolveFixedExpenseAmount(
   expense: Pick<FixedExpense, "estimatedAmount">,
   period?: Pick<FixedExpensePeriod, "status" | "actualAmount"> | null
 ) {
-  return period?.status === "paid" && period.actualAmount !== null
+  return period?.actualAmount !== null && period?.actualAmount !== undefined
     ? period.actualAmount
     : expense.estimatedAmount;
 }

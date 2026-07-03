@@ -27,14 +27,12 @@ import {
   Trash2,
   Calendar,
   DollarSign,
-  CheckCircle,
 } from "lucide-react";
 import {
   getCategoryLabel,
   parseLocalDay,
   generateCalendarUrl,
 } from "@/lib/billing-utils";
-import { toggleBillStatus } from "@/lib/billing-actions";
 import { CATEGORY_OPTIONS } from "@/config/billing/categories";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -60,8 +58,6 @@ export function MobileDocumentsList({
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
-  const [markAllDialogOpen, setMarkAllDialogOpen] = useState(false);
-  const [isMarkingAll, setIsMarkingAll] = useState(false);
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch = (
@@ -125,49 +121,6 @@ export function MobileDocumentsList({
     setDeleteDialogOpen(true);
   };
 
-  const markAsPaid = async (docId: string) => {
-    if (!user) return;
-    const doc = documents.find((d) => d.id === docId);
-    if (!doc) return;
-
-    try {
-      const token = await user.getIdToken();
-      await toggleBillStatus(docId, doc.status, token);
-      onDeleteComplete?.(); // Re-fetch documents
-    } catch (error) {
-      console.error("Error updating document status:", error);
-    }
-  };
-
-  const handleMarkAllClick = () => {
-    const pendingDocs = filteredDocuments.filter(
-      (doc) => doc.status !== "paid"
-    );
-    if (pendingDocs.length === 0) return;
-    setMarkAllDialogOpen(true);
-  };
-
-  const confirmMarkAll = async () => {
-    if (!user) return;
-    setIsMarkingAll(true);
-    const pendingDocs = filteredDocuments.filter(
-      (doc) => doc.status !== "paid"
-    );
-
-    try {
-      const token = await user.getIdToken();
-      for (const doc of pendingDocs) {
-        await toggleBillStatus(doc.id, doc.status, token);
-      }
-      onDeleteComplete?.();
-    } catch (error) {
-      console.error("Error marking all as paid:", error);
-    } finally {
-      setIsMarkingAll(false);
-      setMarkAllDialogOpen(false);
-    }
-  };
-
   const addToCalendar = (doc: BillDocument) => {
     const url = generateCalendarUrl(doc);
     window.open(url, "_blank");
@@ -223,14 +176,6 @@ export function MobileDocumentsList({
             </SelectContent>
           </Select>
         </div>
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={handleMarkAllClick}
-          disabled={filteredDocuments.every((doc) => doc.status === "paid")}
-        >
-          Marcar todo como pagado
-        </Button>
       </div>
 
       <div className="space-y-3">
@@ -307,26 +252,6 @@ export function MobileDocumentsList({
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                    {doc.status !== "paid" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50"
-                        onClick={() => markAsPaid(doc.id)}
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {doc.status === "paid" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-emerald-500 hover:text-amber-500 hover:bg-amber-50"
-                        onClick={() => markAsPaid(doc.id)}
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </Button>
-                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -400,32 +325,6 @@ export function MobileDocumentsList({
         </div>
       )}
 
-      {markAllDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4 bg-background/80">
-          <div className="w-full max-w-md rounded-xl border border-border bg-background p-6 space-y-4 shadow-lg">
-            <h3 className="text-xl font-semibold text-foreground">
-              ¿Marcar todo como pagado?
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              ¿Confirmás marcar{" "}
-              {filteredDocuments.filter((doc) => doc.status !== "paid").length}{" "}
-              boletas como pagadas?
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setMarkAllDialogOpen(false)}
-                disabled={isMarkingAll}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={confirmMarkAll} disabled={isMarkingAll}>
-                {isMarkingAll ? "Procesando..." : "Confirmar"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

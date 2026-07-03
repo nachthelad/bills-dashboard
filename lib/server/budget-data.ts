@@ -1,5 +1,6 @@
 import type { DocumentSnapshot } from "firebase-admin/firestore";
 
+import { parseAmountInput } from "@/lib/amount-parser";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import {
   PERIOD_MONTH_RE,
@@ -7,6 +8,7 @@ import {
   type FixedExpense,
   type FixedExpensePeriod,
   type MonthlyBudgetConfig,
+  type FundingMode,
   type SavingsMode,
   type SpendingLimit,
 } from "@/lib/budget";
@@ -41,7 +43,24 @@ export function parsePreferencesInput(body: Record<string, unknown>) {
   if (savingsMode === "percentage" && savingsValue > 100) {
     throw new BudgetDataError(400, "El porcentaje de ahorro debe estar entre 0 y 100");
   }
-  return { expectedIncome, savingsMode, savingsValue };
+  const fundingMode: FundingMode =
+    body.fundingMode === "cash" ? "cash" : "planned";
+  const arsBufferAmount = parseNonNegativeAmount(
+    body.arsBufferAmount ?? 0,
+    "El colchón en pesos no es válido"
+  );
+  return {
+    expectedIncome,
+    savingsMode,
+    savingsValue,
+    fundingMode,
+    arsBufferAmount,
+  };
+}
+
+export function parseOpeningArsBalance(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  return parseNonNegativeAmount(value, "El saldo inicial no es válido");
 }
 
 export function parseFixedExpenseInput(
@@ -155,6 +174,8 @@ export function serializePreferences(
     savingsMode: normalizeSavingsMode(raw.savingsMode),
     savingsValue:
       typeof raw.savingsValue === "number" ? raw.savingsValue : 20,
+    fundingMode: raw.fundingMode === "cash" ? "cash" : "planned",
+    arsBufferAmount: numberOrZero(raw.arsBufferAmount),
   };
 }
 
@@ -163,7 +184,17 @@ export function serializeMonthlyBudget(
   month: string
 ): MonthlyBudgetConfig | null {
   const preferences = serializePreferences(doc);
-  return preferences ? { ...preferences, month, configured: true } : null;
+  return preferences
+    ? {
+        ...preferences,
+        month,
+        configured: true,
+        openingArsBalance:
+          typeof doc.data()?.openingArsBalance === "number"
+            ? doc.data()?.openingArsBalance
+            : null,
+      }
+    : null;
 }
 
 export function serializeFixedExpense(doc: DocumentSnapshot): FixedExpense {
@@ -248,12 +279,7 @@ function normalizeSavingsMode(value: unknown): SavingsMode {
 }
 
 function parseNonNegativeAmount(value: unknown, message: string) {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : typeof value === "string" && value.trim()
-        ? Number(value.replace(",", "."))
-        : Number.NaN;
+  const parsed = parseAmountInput(value);
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new BudgetDataError(400, message);
   }

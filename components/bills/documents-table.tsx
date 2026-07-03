@@ -27,14 +27,12 @@ import {
   ChevronRight,
   Trash2,
   Calendar,
-  CheckCircle,
 } from "lucide-react";
 import {
   getCategoryLabel,
   parseLocalDay,
   generateCalendarUrl,
 } from "@/lib/billing-utils";
-import { toggleBillStatus } from "@/lib/billing-actions";
 import { CATEGORY_OPTIONS } from "@/config/billing/categories";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -61,8 +59,6 @@ export function DocumentsTable({
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
-  const [markAllDialogOpen, setMarkAllDialogOpen] = useState(false);
-  const [isMarkingAll, setIsMarkingAll] = useState(false);
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch = (
@@ -126,45 +122,6 @@ export function DocumentsTable({
     setDeleteDialogOpen(true);
   };
 
-  const markAsPaid = async (docId: string) => {
-    if (!user) return;
-    const doc = documents.find((d) => d.id === docId);
-    if (!doc) return;
-
-    try {
-      const token = await user.getIdToken();
-      await toggleBillStatus(docId, doc.status, token);
-      onDeleteComplete?.(); // Re-fetch documents
-    } catch (error) {
-      console.error("Error updating document status:", error);
-    }
-  };
-
-  const handleMarkAllClick = () => {
-    const pendingDocs = filteredDocuments.filter(
-      (doc) => doc.status !== "paid"
-    );
-    if (pendingDocs.length === 0) return;
-    setMarkAllDialogOpen(true);
-  };
-
-  const confirmMarkAll = async () => {
-    if (!user) return;
-    setIsMarkingAll(true);
-    const pendingDocs = filteredDocuments.filter(
-      (doc) => doc.status !== "paid"
-    );
-
-    try {
-      for (const doc of pendingDocs) {
-        await markAsPaid(doc.id);
-      }
-    } finally {
-      setIsMarkingAll(false);
-      setMarkAllDialogOpen(false);
-    }
-  };
-
   const addToCalendar = (doc: BillDocument) => {
     const url = generateCalendarUrl(doc);
     window.open(url, "_blank");
@@ -216,17 +173,8 @@ export function DocumentsTable({
             <SelectItem value="pending">Pendiente</SelectItem>
             <SelectItem value="needs_review">Requiere revisión</SelectItem>
             <SelectItem value="error">Error</SelectItem>
-            <SelectItem value="paid">Pagado</SelectItem>
           </SelectContent>
         </Select>
-        <Button
-          variant="outline"
-          onClick={handleMarkAllClick}
-          disabled={filteredDocuments.every((doc) => doc.status === "paid")}
-          title="Marcar todas las boletas visibles como pagadas"
-        >
-          Marcar todo como pagado
-        </Button>
       </div>
 
       <div className="rounded-md border">
@@ -239,7 +187,6 @@ export function DocumentsTable({
               <TableHead>Vencimiento</TableHead>
               <TableHead className="text-right">Monto</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-center w-[100px]">¿Pagado?</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -247,7 +194,7 @@ export function DocumentsTable({
             {filteredDocuments.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={7}
                   className="h-24 text-center text-muted-foreground"
                 >
                   No se encontraron boletas.
@@ -289,30 +236,6 @@ export function DocumentsTable({
                       >
                         {getDocumentStatusLabel(doc.status)}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {doc.status !== "paid" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => markAsPaid(doc.id)}
-                          title="Marcar como pagada"
-                          className="text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {doc.status === "paid" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => markAsPaid(doc.id)}
-                          title="Marcar como pendiente"
-                          className="text-emerald-500 hover:text-amber-500 hover:bg-amber-50"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -389,32 +312,6 @@ export function DocumentsTable({
         </div>
       )}
 
-      {markAllDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-background p-6 space-y-4 shadow-lg">
-            <h3 className="text-xl font-semibold text-foreground">
-              ¿Marcar todo como pagado?
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              ¿Confirmás marcar{" "}
-              {filteredDocuments.filter((doc) => doc.status !== "paid").length}{" "}
-              boletas como pagadas?
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setMarkAllDialogOpen(false)}
-                disabled={isMarkingAll}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={confirmMarkAll} disabled={isMarkingAll}>
-                {isMarkingAll ? "Procesando..." : "Confirmar"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

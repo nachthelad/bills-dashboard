@@ -12,17 +12,19 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth-context";
+import { parseAmountInput } from "@/lib/amount-parser";
 import {
   createFixedExpense,
   deactivateFixedExpense,
   fetchBudgetPreferences,
   fetchFixedExpenses,
   fetchSpendingLimits,
-  saveBudgetPreferences,
+  saveMonthlyBudget,
   saveSpendingLimits,
   updateFixedExpense,
 } from "@/lib/budget-client";
 import { fetchExpenseCategories } from "@/lib/expenses-client";
+import { VARIABLE_BUDGET_CATEGORIES } from "@/lib/expenses-client";
 import {
   getArgentinaDateParts,
   type BudgetPreferences,
@@ -31,6 +33,7 @@ import {
 } from "@/lib/budget";
 import { formatAmount } from "@/lib/format-currency";
 import { BudgetPlanForm } from "@/components/budget/budget-plan-form";
+import { IncomeSourcesSettings } from "@/components/income/income-sources-settings";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -56,21 +59,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type FixedExpenseFormState = Pick<
-  FixedExpense,
-  | "name"
-  | "category"
-  | "estimatedAmount"
-  | "dueDay"
-  | "sourceType"
-  | "sourceKey"
->;
+type FixedExpenseFormState = Omit<
+  Pick<
+    FixedExpense,
+    | "name"
+    | "category"
+    | "estimatedAmount"
+    | "dueDay"
+    | "sourceType"
+    | "sourceKey"
+  >,
+  "estimatedAmount" | "dueDay"
+> & {
+  estimatedAmount: string;
+  dueDay: string;
+};
 
 const EMPTY_FIXED: FixedExpenseFormState = {
   name: "",
   category: "Servicios",
-  estimatedAmount: 0,
-  dueDay: null,
+  estimatedAmount: "",
+  dueDay: "",
   sourceType: "manual" as const,
   sourceKey: null,
 };
@@ -81,7 +90,7 @@ export function BudgetSettings() {
   const [preferences, setPreferences] = useState<BudgetPreferences | null>(null);
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
-  const [limits, setLimits] = useState<Record<string, number>>({});
+  const [limits, setLimits] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fixedDialogOpen, setFixedDialogOpen] = useState(false);
@@ -89,8 +98,10 @@ export function BudgetSettings() {
   const [fixedForm, setFixedForm] =
     useState<FixedExpenseFormState>(EMPTY_FIXED);
   const [savingFixed, setSavingFixed] = useState(false);
+  const [fixedError, setFixedError] = useState<string | null>(null);
   const [savingLimits, setSavingLimits] = useState(false);
   const [limitsSaved, setLimitsSaved] = useState(false);
+  const [limitsError, setLimitsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -111,7 +122,10 @@ export function BudgetSettings() {
         setCategories(nextCategories);
         setLimits(
           Object.fromEntries(
-            nextLimits.map((limit) => [limit.category, limit.limitAmount])
+            nextLimits.map((limit) => [
+              limit.category,
+              String(limit.limitAmount),
+            ])
           )
         );
       } catch (cause) {
@@ -131,10 +145,13 @@ export function BudgetSettings() {
     };
   }, [month, user]);
 
-  async function savePreferences(value: BudgetPreferences) {
+  async function savePreferences(
+    value: BudgetPreferences & { openingArsBalance?: number | null }
+  ) {
     if (!user) return;
     const token = await user.getIdToken();
-    setPreferences(await saveBudgetPreferences(token, value));
+    const summary = await saveMonthlyBudget(token, month, value);
+    setPreferences(summary.plan);
   }
 
   function openFixedDialog(expense?: FixedExpense) {
@@ -144,24 +161,47 @@ export function BudgetSettings() {
         ? {
             name: expense.name,
             category: expense.category,
-            estimatedAmount: expense.estimatedAmount,
-            dueDay: expense.dueDay,
+            estimatedAmount: String(expense.estimatedAmount),
+            dueDay: expense.dueDay === null ? "" : String(expense.dueDay),
             sourceType: expense.sourceType,
             sourceKey: expense.sourceKey,
           }
         : EMPTY_FIXED
     );
+    setFixedError(null);
     setFixedDialogOpen(true);
   }
 
   async function saveFixed(event: React.FormEvent) {
     event.preventDefault();
     if (!user) return;
+    const estimatedAmount = parseAmountInput(fixedForm.estimatedAmount);
+    if (
+      !fixedForm.estimatedAmount.trim() ||
+      !Number.isFinite(estimatedAmount) ||
+      estimatedAmount < 0
+    ) {
+      setFixedError("Ingresá un importe estimado válido");
+      return;
+    }
+    const dueDay = fixedForm.dueDay.trim()
+      ? Number(fixedForm.dueDay)
+      : null;
+    if (
+      dueDay !== null &&
+      (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)
+    ) {
+      setFixedError("El día de vencimiento debe estar entre 1 y 31");
+      return;
+    }
     setSavingFixed(true);
+    setFixedError(null);
     try {
       const token = await user.getIdToken();
       const input = {
         ...fixedForm,
+        estimatedAmount,
+        dueDay,
         activeFrom: editing?.activeFrom ?? month,
         inactiveFrom: editing?.inactiveFrom ?? null,
       };
@@ -177,7 +217,7 @@ export function BudgetSettings() {
       );
       setFixedDialogOpen(false);
     } catch (cause) {
-      setError(
+      setFixedError(
         cause instanceof Error ? cause.message : "No se pudo guardar el gasto"
       );
     } finally {
@@ -196,16 +236,31 @@ export function BudgetSettings() {
     if (!user) return;
     setSavingLimits(true);
     setLimitsSaved(false);
+    setLimitsError(null);
     try {
-      const payload: SpendingLimit[] = Object.entries(limits)
-        .filter(([, amount]) => amount > 0)
-        .map(([category, limitAmount]) => ({ category, limitAmount }));
+      const payload: SpendingLimit[] = [];
+      for (const [category, rawAmount] of Object.entries(limits)) {
+        if (!rawAmount.trim()) continue;
+        const limitAmount = parseAmountInput(rawAmount);
+        if (!Number.isFinite(limitAmount) || limitAmount < 0) {
+          throw new Error(`Ingresá un límite válido para ${category}`);
+        }
+        if (limitAmount > 0) {
+          payload.push({ category, limitAmount });
+        }
+      }
       const token = await user.getIdToken();
       const saved = await saveSpendingLimits(token, month, payload);
       setLimits(
-        Object.fromEntries(saved.map((item) => [item.category, item.limitAmount]))
+        Object.fromEntries(
+          saved.map((item) => [item.category, String(item.limitAmount)])
+        )
       );
       setLimitsSaved(true);
+    } catch (cause) {
+      setLimitsError(
+        cause instanceof Error ? cause.message : "No se pudieron guardar los límites"
+      );
     } finally {
       setSavingLimits(false);
     }
@@ -225,9 +280,10 @@ export function BudgetSettings() {
 
       <Card id="monthly-plan">
         <CardHeader>
-          <CardTitle>Plan mensual predeterminado</CardTitle>
+          <CardTitle>Cómo se calcula tu mes</CardTitle>
           <CardDescription>
-            Estos valores se usan como punto de partida para cada mes nuevo.
+            Elegí entre la proyección anterior o fondos ARS efectivamente
+            disponibles.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -240,6 +296,8 @@ export function BudgetSettings() {
           ) : null}
         </CardContent>
       </Card>
+
+      <IncomeSourcesSettings />
 
       <Card id="fixed-expenses">
         <CardHeader>
@@ -310,18 +368,20 @@ export function BudgetSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            {categories.map((category) => (
+            {VARIABLE_BUDGET_CATEGORIES.map((category) => (
               <div key={category} className="space-y-2">
                 <Label htmlFor={`limit-${category}`}>{category}</Label>
                 <Input
                   id={`limit-${category}`}
+                  type="text"
                   inputMode="decimal"
-                  value={limits[category] || ""}
+                  value={limits[category] ?? ""}
                   onChange={(event) => {
                     setLimitsSaved(false);
+                    setLimitsError(null);
                     setLimits((current) => ({
                       ...current,
-                      [category]: Number(event.target.value),
+                      [category]: event.target.value,
                     }));
                   }}
                   placeholder="Sin límite"
@@ -337,6 +397,9 @@ export function BudgetSettings() {
               <span className="text-sm text-emerald-600">Guardados</span>
             ) : null}
           </div>
+          {limitsError ? (
+            <p className="text-sm text-destructive">{limitsError}</p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -405,18 +468,16 @@ export function BudgetSettings() {
                 <Label htmlFor="fixed-due">Día de vencimiento</Label>
                 <Input
                   id="fixed-due"
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={fixedForm.dueDay ?? ""}
+                  type="text"
+                  inputMode="numeric"
+                  value={fixedForm.dueDay}
                   onChange={(event) =>
                     setFixedForm((current) => ({
                       ...current,
-                      dueDay: event.target.value
-                        ? Number(event.target.value)
-                        : null,
+                      dueDay: event.target.value,
                     }))
                   }
+                  placeholder="1–31"
                 />
               </div>
             </div>
@@ -424,14 +485,16 @@ export function BudgetSettings() {
               <Label htmlFor="fixed-amount">Importe estimado</Label>
               <Input
                 id="fixed-amount"
+                type="text"
                 inputMode="decimal"
-                value={fixedForm.estimatedAmount || ""}
+                value={fixedForm.estimatedAmount}
                 onChange={(event) =>
                   setFixedForm((current) => ({
                     ...current,
-                    estimatedAmount: Number(event.target.value),
+                    estimatedAmount: event.target.value,
                   }))
                 }
+                placeholder="0,00"
                 required
               />
             </div>
@@ -484,6 +547,9 @@ export function BudgetSettings() {
                 </div>
               ) : null}
             </div>
+            {fixedError ? (
+              <p className="text-sm text-destructive">{fixedError}</p>
+            ) : null}
             <Button type="submit" disabled={savingFixed} className="w-full">
               {savingFixed ? "Guardando…" : "Guardar gasto fijo"}
             </Button>

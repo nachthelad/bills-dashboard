@@ -2,6 +2,8 @@ import { getAdminFirestore } from "@/lib/firebase-admin";
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import {
   calculateMonthlyBudget,
+  calculateCashFunding,
+  calculateForeignBalances,
   getLimitSummary,
   getMonthTiming,
   getNextPeriodMonth,
@@ -24,6 +26,7 @@ import {
   serializeRecurringExpense,
 } from "@/lib/server/credit-cards";
 import { toDate } from "@/lib/server/document-serializer";
+import { serializeConversion } from "@/lib/server/income-funding";
 import {
   serializeFixedExpense,
   serializeFixedExpensePeriod,
@@ -36,6 +39,8 @@ const DEFAULT_PREFERENCES: BudgetPreferences = {
   expectedIncome: 0,
   savingsMode: "percentage",
   savingsValue: 20,
+  fundingMode: "planned",
+  arsBufferAmount: 0,
 };
 
 export async function buildMonthlyBudgetSummary(
@@ -58,6 +63,7 @@ export async function buildMonthlyBudgetSummary(
     recurringSnapshot,
     documentsSnapshot,
     hoaSnapshot,
+    conversionsSnapshot,
   ] = await Promise.all([
     db.collection("budgetPreferences").doc(uid).get(),
     db.collection("monthlyBudgets").doc(`${uid}_${month}`).get(),
@@ -74,6 +80,10 @@ export async function buildMonthlyBudgetSummary(
       .get(),
     db.collection("documents").where("userId", "==", uid).get(),
     db.collection("hoaSummaries").where("userId", "==", uid).get(),
+    db
+      .collection("currencyConversions")
+      .where("userId", "==", uid)
+      .get(),
   ]);
 
   const preferences =
@@ -83,6 +93,7 @@ export async function buildMonthlyBudgetSummary(
     ...preferences,
     month,
     configured: false,
+    openingArsBalance: null,
   };
   const timing = getMonthTiming(month, now);
 
@@ -157,7 +168,7 @@ export async function buildMonthlyBudgetSummary(
     (limit) => limit.percentageUsed >= 80 && limit.percentageUsed < 100
   );
 
-  const registeredIncome = incomeSnapshot.docs.reduce((total, doc) => {
+  const directArsIncome = incomeSnapshot.docs.reduce((total, doc) => {
     const raw = doc.data();
     const date = toDate(raw.date);
     if (!date || getArgentinaPeriod(date) !== month || raw.currency === "USD") {
@@ -165,6 +176,26 @@ export async function buildMonthlyBudgetSummary(
     }
     return total + numberOrZero(raw.amount);
   }, 0);
+  const conversions = conversionsSnapshot.docs.map(serializeConversion);
+  const convertedArs = conversions.reduce((total, conversion) => {
+    const date = new Date(conversion.date);
+    return getArgentinaPeriod(date) === month
+      ? total + conversion.arsReceived
+      : total;
+  }, 0);
+  const foreignBalances = calculateForeignBalances(
+    incomeSnapshot.docs.map((doc) => {
+      const raw = doc.data();
+      return {
+        currency:
+          raw.currency === "USD" || raw.currency === "USDT"
+            ? raw.currency
+            : "ARS",
+        amount: numberOrZero(raw.amount),
+      };
+    }),
+    conversions
+  );
 
   const cycles: CreditCardCycle[] = cyclesSnapshot.docs.map(serializeCycle);
   const purchases: CreditCardPurchase[] =
@@ -179,7 +210,11 @@ export async function buildMonthlyBudgetSummary(
   );
   const currentCard = sumCardTotals(projections, month);
   const nextCard = sumCardTotals(projections, nextMonth);
-  const usdRequired = currentCard.usd > 0 || nextCard.usd > 0;
+  const usdRequired =
+    currentCard.usd > 0 ||
+    nextCard.usd > 0 ||
+    foreignBalances.available.USD > 0 ||
+    foreignBalances.available.USDT > 0;
   const rate = usdRequired ? await fetchUsdRate() : null;
   const missingSources: string[] = [];
   if (missingVariableUsdRate) missingSources.push("Conversión de movimientos USD");
@@ -188,7 +223,7 @@ export async function buildMonthlyBudgetSummary(
   const currentCardArs =
     currentCard.ars + (rate ? currentCard.usd * rate.price : 0);
   const nextCardArs = nextCard.ars + (rate ? nextCard.usd * rate.price : 0);
-  const calculation = calculateMonthlyBudget({
+  const legacyCalculation = calculateMonthlyBudget({
     expectedIncome: config.expectedIncome,
     savingsMode: config.savingsMode,
     savingsValue: config.savingsValue,
@@ -202,6 +237,47 @@ export async function buildMonthlyBudgetSummary(
     hasLimitExceeded,
     incomplete: !config.configured || missingSources.length > 0,
   });
+  const variableCoverage = limits.reduce(
+    (total, limit) => total + Math.max(limit.limitAmount, limit.spentAmount),
+    0
+  );
+  const cashFunding = calculateCashFunding({
+    openingArsBalance: config.openingArsBalance ?? 0,
+    directArsIncome,
+    convertedArs,
+    fixedExpenses: fixedCommitted,
+    committedInstallments: currentCardArs,
+    variableSpent,
+    variableCoverage,
+    arsBufferAmount: config.arsBufferAmount,
+    daysRemaining: timing.daysRemaining,
+  });
+  const cashStatus = calculateMonthlyBudget({
+    expectedIncome: cashFunding.fundedArs,
+    savingsMode: "fixed",
+    savingsValue: 0,
+    fixedExpenses: fixedCommitted,
+    committedInstallments: currentCardArs,
+    variableSpent,
+    daysRemaining: timing.daysRemaining,
+    daysInMonth: timing.daysInMonth,
+    elapsedDays: timing.elapsedDays,
+    hasLimitWarning,
+    hasLimitExceeded,
+    incomplete:
+      !config.configured ||
+      config.openingArsBalance === null ||
+      missingSources.length > 0,
+  });
+  const cashMode = config.fundingMode === "cash";
+  const calculation = cashMode
+    ? {
+        ...cashStatus,
+        savingsReserved: 0,
+        available: cashFunding.available,
+        dailyAvailable: cashFunding.dailyAvailable,
+      }
+    : legacyCalculation;
 
   const alerts = buildAlerts({
     limits,
@@ -219,13 +295,15 @@ export async function buildMonthlyBudgetSummary(
       expectedIncome: config.expectedIncome,
       savingsMode: config.savingsMode,
       savingsValue: config.savingsValue,
+      fundingMode: config.fundingMode,
+      arsBufferAmount: config.arsBufferAmount,
     },
     status: calculation.status,
     daysRemaining: timing.daysRemaining,
     daysInMonth: timing.daysInMonth,
     amounts: {
       expectedIncome: config.expectedIncome,
-      registeredIncome,
+      registeredIncome: directArsIncome,
       savingsReserved: calculation.savingsReserved,
       fixedCommitted,
       cardCommitted: currentCardArs,
@@ -237,11 +315,26 @@ export async function buildMonthlyBudgetSummary(
       nextMonthCardCommitted: nextCardArs,
       nextMonthCardCommittedUsd: nextCard.usd,
     },
+    funding: {
+      mode: config.fundingMode,
+      openingArsBalance: config.openingArsBalance,
+      directArsIncome,
+      convertedArs,
+      fundedArs: cashFunding.fundedArs,
+      coverageTarget: cashFunding.coverageTarget,
+      conversionNeededArs: cashFunding.conversionNeededArs,
+      foreignReceived: foreignBalances.received,
+      foreignConverted: foreignBalances.converted,
+      foreignAvailable: foreignBalances.available,
+    },
     fixedExpenses,
     limits,
     alerts,
     dataQuality: {
-      complete: config.configured && missingSources.length === 0,
+      complete:
+        config.configured &&
+        missingSources.length === 0 &&
+        (!cashMode || config.openingArsBalance !== null),
       missingSources,
       usdRate: rate?.price ?? null,
       usdRateUpdatedAt: rate?.updatedAt ?? null,
@@ -356,7 +449,7 @@ function resolveImportedFixedPeriod(
         return {
           fixedExpenseId: expense.id,
           month,
-          status: "paid" as const,
+          status: "pending" as const,
           actualAmount,
           sourceType: "document" as const,
           sourceId: match.id,
@@ -379,7 +472,7 @@ function resolveImportedFixedPeriod(
         return {
           fixedExpenseId: expense.id,
           month,
-          status: "paid" as const,
+          status: "pending" as const,
           actualAmount,
           sourceType: "hoa" as const,
           sourceId: match.id,

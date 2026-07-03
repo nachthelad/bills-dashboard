@@ -11,6 +11,7 @@ import {
   ReceiptText,
   ShieldCheck,
   Sparkles,
+  CircleDollarSign,
   WalletCards,
 } from "lucide-react";
 
@@ -20,7 +21,12 @@ import {
   saveMonthlyBudget,
   updateFixedExpensePeriod,
 } from "@/lib/budget-client";
-import { getArgentinaDateParts, type FixedExpenseSummary, type MonthlyBudgetSummary } from "@/lib/budget";
+import {
+  getArgentinaDateParts,
+  type BudgetPreferences,
+  type FixedExpenseSummary,
+  type MonthlyBudgetSummary,
+} from "@/lib/budget";
 import { formatAmount } from "@/lib/format-currency";
 import {
   AmountVisibilityToggle,
@@ -100,11 +106,9 @@ export function MonthlyBudgetDashboard() {
     void load();
   }, [load]);
 
-  async function savePlan(value: {
-    expectedIncome: number;
-    savingsMode: "fixed" | "percentage";
-    savingsValue: number;
-  }) {
+  async function savePlan(
+    value: BudgetPreferences & { openingArsBalance?: number | null }
+  ) {
     if (!user) return;
     const token = await user.getIdToken();
     setSummary(await saveMonthlyBudget(token, month, value));
@@ -179,9 +183,13 @@ export function MonthlyBudgetDashboard() {
                 expectedIncome: summary.amounts.expectedIncome,
                 savingsMode: "percentage",
                 savingsValue: 20,
+                fundingMode: "planned",
+                arsBufferAmount: 0,
+                openingArsBalance: null,
               }}
               onSave={savePlan}
               submitLabel="Empezar mi mes"
+              showOpeningBalance
             />
           </CardContent>
         </Card>
@@ -225,7 +233,9 @@ export function MonthlyBudgetDashboard() {
               {formatAmount(summary.amounts.available, "ARS", showAmounts)}
             </p>
             <p className="mt-4 max-w-md text-sm text-slate-300">
-              {status.description}
+              {summary.funding.mode === "cash"
+                ? "Calculado con los pesos que realmente tenés disponibles."
+                : status.description}
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
@@ -244,13 +254,25 @@ export function MonthlyBudgetDashboard() {
         </div>
         <div className="relative mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-5">
           <Metric
-            label="Ingreso"
-            value={summary.amounts.expectedIncome}
+            label={summary.funding.mode === "cash" ? "Fondos ARS" : "Ingreso"}
+            value={
+              summary.funding.mode === "cash"
+                ? summary.funding.fundedArs
+                : summary.amounts.expectedIncome
+            }
             show={showAmounts}
           />
           <Metric
-            label="Ahorro reservado"
-            value={summary.amounts.savingsReserved}
+            label={
+              summary.funding.mode === "cash"
+                ? "Convertido"
+                : "Ahorro reservado"
+            }
+            value={
+              summary.funding.mode === "cash"
+                ? summary.funding.convertedArs
+                : summary.amounts.savingsReserved
+            }
             show={showAmounts}
           />
           <Metric
@@ -271,6 +293,82 @@ export function MonthlyBudgetDashboard() {
         </div>
       </section>
 
+      {summary.funding.mode === "cash" ? (
+        <Card className="overflow-hidden">
+          <CardHeader className="sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <CircleDollarSign className="size-5 text-emerald-600" />
+                Fondos del mes
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Cobros reales, conversiones y cobertura en pesos.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link href="/income">Registrar cobro</Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href="/income#conversions">Registrar conversión</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 pt-6 md:grid-cols-4">
+            <FundingMetric
+              label="Cobrado"
+              value={`USD ${summary.funding.foreignReceived.USD.toLocaleString("es-AR")} · USDT ${summary.funding.foreignReceived.USDT.toLocaleString("es-AR")}`}
+            />
+            <FundingMetric
+              label="Sin convertir"
+              value={`USD ${summary.funding.foreignAvailable.USD.toLocaleString("es-AR")} · USDT ${summary.funding.foreignAvailable.USDT.toLocaleString("es-AR")}`}
+            />
+            <FundingMetric
+              label="Convertido a ARS"
+              value={formatAmount(
+                summary.funding.convertedArs,
+                "ARS",
+                showAmounts
+              )}
+            />
+            <FundingMetric
+              label="Falta cubrir"
+              value={formatAmount(
+                summary.funding.conversionNeededArs,
+                "ARS",
+                showAmounts
+              )}
+              accent={summary.funding.conversionNeededArs > 0}
+            />
+          </CardContent>
+          <div className="border-t px-6 py-4">
+            <div className="mb-2 flex items-center justify-between gap-4 text-xs">
+              <span className="font-semibold">Cobertura mensual</span>
+              <span className="text-muted-foreground">
+                {formatAmount(summary.funding.fundedArs, "ARS", showAmounts)} de{" "}
+                {formatAmount(
+                  summary.funding.coverageTarget,
+                  "ARS",
+                  showAmounts
+                )}
+              </span>
+            </div>
+            <Progress
+              value={
+                summary.funding.coverageTarget > 0
+                  ? Math.min(
+                      100,
+                      (summary.funding.fundedArs /
+                        summary.funding.coverageTarget) *
+                        100
+                    )
+                  : 100
+              }
+            />
+          </div>
+        </Card>
+      ) : null}
+
       {summary.dataQuality.missingSources.length > 0 ? (
         <div className="rounded-xl border border-amber-400/40 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/20 dark:text-amber-200">
           Falta: {summary.dataQuality.missingSources.join(", ")}. Los totales
@@ -289,7 +387,7 @@ export function MonthlyBudgetDashboard() {
                 </p>
               </div>
               <Link
-                href="/settings#limits"
+                href="/budget#limits"
                 className="text-sm font-semibold text-primary hover:underline"
               >
                 Configurar
@@ -299,7 +397,7 @@ export function MonthlyBudgetDashboard() {
               {summary.limits.length === 0 ? (
                 <EmptyLine
                   text="Todavía no definiste límites por categoría."
-                  href="/settings#limits"
+                  href="/budget#limits"
                 />
               ) : (
                 summary.limits.map((limit) => (
@@ -358,7 +456,7 @@ export function MonthlyBudgetDashboard() {
               {summary.fixedExpenses.length === 0 ? (
                 <EmptyLine
                   text="Agregá tus servicios y pagos recurrentes."
-                  href="/settings#fixed-expenses"
+                  href="/budget#fixed-expenses"
                 />
               ) : (
                 summary.fixedExpenses.map((expense) => (
@@ -407,7 +505,7 @@ export function MonthlyBudgetDashboard() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            setPaidAmount(String(expense.estimatedAmount));
+                            setPaidAmount(String(expense.budgetedAmount));
                             setPayingExpense(expense);
                           }}
                         >
@@ -502,8 +600,12 @@ export function MonthlyBudgetDashboard() {
               expectedIncome: summary.plan.expectedIncome,
               savingsMode: summary.plan.savingsMode,
               savingsValue: summary.plan.savingsValue,
+              fundingMode: summary.plan.fundingMode,
+              arsBufferAmount: summary.plan.arsBufferAmount,
+              openingArsBalance: summary.funding.openingArsBalance,
             }}
             onSave={savePlan}
+            showOpeningBalance
           />
         </DialogContent>
       </Dialog>
@@ -554,6 +656,27 @@ function Metric({
       </p>
       <p className="mt-1 text-sm font-bold text-slate-100">
         {formatAmount(value, "ARS", show)}
+      </p>
+    </div>
+  );
+}
+
+function FundingMetric({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className={cn("mt-1 text-sm font-bold", accent && "text-amber-600")}>
+        {value}
       </p>
     </div>
   );

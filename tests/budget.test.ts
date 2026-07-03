@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   calculateMonthlyBudget,
+  calculateCashFunding,
+  calculateForeignBalances,
   calculateSavingsAmount,
   getLimitSummary,
   getMonthTiming,
@@ -82,6 +84,64 @@ test("paid fixed expenses replace estimates instead of adding to them", () => {
       { status: "pending", actualAmount: null }
     ),
     10_000
+  );
+});
+
+test("a detected invoice amount replaces the estimate without marking it paid", () => {
+  assert.equal(
+    resolveFixedExpenseAmount(
+      { estimatedAmount: 10_000 },
+      { status: "pending", actualAmount: 12_500 }
+    ),
+    12_500
+  );
+});
+
+test("cash funding separates real availability from monthly coverage", () => {
+  const result = calculateCashFunding({
+    openingArsBalance: 100_000,
+    directArsIncome: 50_000,
+    convertedArs: 1_000_000,
+    fixedExpenses: 400_000,
+    committedInstallments: 200_000,
+    variableSpent: 100_000,
+    variableCoverage: 300_000,
+    arsBufferAmount: 100_000,
+    daysRemaining: 10,
+  });
+  assert.deepEqual(result, {
+    fundedArs: 1_150_000,
+    available: 450_000,
+    dailyAvailable: 45_000,
+    coverageTarget: 1_000_000,
+    conversionNeededArs: 0,
+  });
+});
+
+test("foreign balances keep USD and USDT separate", () => {
+  assert.deepEqual(
+    calculateForeignBalances(
+      [
+        { currency: "USD", amount: 650 },
+        { currency: "USDT", amount: 800 },
+        { currency: "ARS", amount: 10_000 },
+      ],
+      [
+        {
+          fromCurrency: "USD",
+          fromAmount: 200,
+        },
+        {
+          fromCurrency: "USDT",
+          fromAmount: 300,
+        },
+      ]
+    ),
+    {
+      received: { USD: 650, USDT: 800 },
+      converted: { USD: 200, USDT: 300 },
+      available: { USD: 450, USDT: 500 },
+    }
   );
 });
 

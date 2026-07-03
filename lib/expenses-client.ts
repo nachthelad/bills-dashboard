@@ -22,13 +22,28 @@ export type ExpenseCreateInput = {
 
 export const EXPENSE_CATEGORIES = [
   "Compra",
-  "Comida",
+  "Salidas",
+  "Comida comprada",
+  "Hobbies",
   "Servicios",
   "Tarjeta",
   "Salud",
   "Fútbol",
   "Transporte",
   "Otros",
+  "Gatos",
+] as const;
+
+export const VARIABLE_BUDGET_CATEGORIES = [
+  "Compra",
+  "Salidas",
+  "Comida comprada",
+  "Hobbies",
+  "Transporte",
+  "Otros",
+  "Gatos",
+  "Salud",
+  "Fútbol",
 ] as const;
 
 export const PAYMENT_METHODS = [

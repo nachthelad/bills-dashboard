@@ -12,6 +12,7 @@ import { IncomeTable } from "@/components/income/income-table";
 import { MobileIncomeList } from "@/components/income/mobile-income-list";
 import { Card, CardContent } from "@/components/ui/card";
 import { DollarSign, TrendingUp } from "lucide-react";
+import { FundingLedger } from "@/components/income/funding-ledger";
 
 export default function IncomePage() {
   const { user } = useAuth();
@@ -41,7 +42,9 @@ export default function IncomePage() {
       .catch(() => {});
   }, [loadEntries]);
 
-  const totalIncome = entries.reduce((sum, entry) => sum + entry.amount, 0);
+  const totalIncome = entries
+    .filter((entry) => entry.currency === "ARS")
+    .reduce((sum, entry) => sum + entry.amount, 0);
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const monthlyIncome = entries
@@ -49,6 +52,7 @@ export default function IncomePage() {
       const d = new Date(e.date);
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     })
+    .filter((entry) => entry.currency === "ARS")
     .reduce((sum, entry) => sum + entry.amount, 0);
 
   const formatCurrency = (amount: number) => {
@@ -85,7 +89,7 @@ export default function IncomePage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
               <TrendingUp className="w-4 h-4 text-emerald-500" />
-              Ingresos totales del año
+              Cobros ARS registrados
             </div>
             <div className="text-3xl font-bold text-emerald-500">
               {formatCurrency(totalIncome)}
@@ -122,6 +126,8 @@ export default function IncomePage() {
           </CardContent>
         </Card>
       </div>
+
+      <FundingLedger entries={entries} showAmounts={showAmounts} />
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">

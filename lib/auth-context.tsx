@@ -65,21 +65,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      resolveAuthState(currentUser);
+    });
+
     const initAuth = async () => {
+      const persistenceReady = setPersistence(auth, browserLocalPersistence)
+        .catch((error) => {
+          console.error("Failed to set auth persistence:", error);
+        });
       try {
-        // Explicitly set persistence to LOCAL (persists across browser restarts)
-        await setPersistence(auth, browserLocalPersistence);
-      } catch (error) {
-        console.error("Failed to set auth persistence:", error);
-      }
-
-      unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-        resolveAuthState(currentUser);
-      });
-
-      try {
-        // Wait for Firebase to restore the session from IndexedDB
-        await auth.authStateReady();
+        await Promise.all([auth.authStateReady(), persistenceReady]);
       } catch (error) {
         console.error("Error waiting for auth state ready:", error);
       } finally {

@@ -47,19 +47,25 @@ export function IncomeTable({ entries, showAmounts, onRefresh }: IncomeTableProp
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDelete = async () => {
     if (!user || !deleteId) return;
+    let deleted = false;
     setDeleteLoading(true);
+    setDeleteError(null);
     try {
       const token = await user.getIdToken();
       await deleteIncomeEntry(token, deleteId);
+      deleted = true;
       onRefresh();
     } catch (err) {
-      console.error("Delete failed:", err);
+      setDeleteError(
+        err instanceof Error ? err.message : "No se pudo eliminar el ingreso"
+      );
     } finally {
       setDeleteLoading(false);
-      setDeleteId(null);
+      if (deleted) setDeleteId(null);
     }
   };
 
@@ -172,6 +178,9 @@ export function IncomeTable({ entries, showAmounts, onRefresh }: IncomeTableProp
             <AlertDialogDescription className="text-muted-foreground">
               Esta acción no se puede deshacer.
             </AlertDialogDescription>
+            {deleteError ? (
+              <p className="text-sm text-destructive">{deleteError}</p>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteLoading}>Cancelar</AlertDialogCancel>

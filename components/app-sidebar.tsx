@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Settings } from "lucide-react";
+import { Settings, SlidersHorizontal } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
@@ -23,6 +23,11 @@ import {
 import { navItems } from "@/lib/nav-items";
 
 const navSecondary = [
+  {
+    title: "Mi presupuesto",
+    url: "/budget",
+    icon: SlidersHorizontal,
+  },
   {
     title: "Configuración",
     url: "/settings",
