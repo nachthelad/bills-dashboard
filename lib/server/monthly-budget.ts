@@ -3,12 +3,14 @@ import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import {
   calculateMonthlyBudget,
   calculateCashFunding,
+  calculateDirectArsIncome,
   calculateForeignBalances,
   getLimitSummary,
   getMonthTiming,
   getNextPeriodMonth,
   isFixedExpenseActive,
   resolveFixedExpenseAmount,
+  resolveCashBudgetStatus,
   type BudgetAlert,
   type BudgetPreferences,
   type MonthlyBudgetConfig,
@@ -32,14 +34,14 @@ import {
   serializeFixedExpensePeriod,
   serializeMonthlyBudget,
   serializePreferences,
-  serializeSpendingLimit,
+  serializeUniqueSpendingLimits,
 } from "@/lib/server/budget-data";
 
 const DEFAULT_PREFERENCES: BudgetPreferences = {
   expectedIncome: 0,
   savingsMode: "percentage",
   savingsValue: 20,
-  fundingMode: "planned",
+  fundingMode: "cash",
   arsBufferAmount: 0,
 };
 
@@ -158,24 +160,32 @@ export async function buildMonthlyBudgetSummary(
   }
 
   const limits = getLimitSummary(
-    limitsSnapshot.docs
-      .filter((doc) => doc.data().month === month)
-      .map(serializeSpendingLimit),
+    serializeUniqueSpendingLimits(
+      limitsSnapshot.docs.filter((doc) => doc.data().month === month)
+    ),
     spentByCategory
   );
-  const hasLimitExceeded = limits.some((limit) => limit.percentageUsed >= 100);
+  const hasLimitExceeded = limits.some((limit) => limit.percentageUsed > 100);
   const hasLimitWarning = limits.some(
-    (limit) => limit.percentageUsed >= 80 && limit.percentageUsed < 100
+    (limit) => limit.percentageUsed >= 80 && limit.percentageUsed <= 100
   );
 
-  const directArsIncome = incomeSnapshot.docs.reduce((total, doc) => {
-    const raw = doc.data();
-    const date = toDate(raw.date);
-    if (!date || getArgentinaPeriod(date) !== month || raw.currency === "USD") {
-      return total;
-    }
-    return total + numberOrZero(raw.amount);
-  }, 0);
+  const directArsIncome = calculateDirectArsIncome(
+    incomeSnapshot.docs.flatMap((doc) => {
+      const raw = doc.data();
+      const date = toDate(raw.date);
+      if (!date || getArgentinaPeriod(date) !== month) return [];
+      return [
+        {
+          currency:
+            raw.currency === "USD" || raw.currency === "USDT"
+              ? raw.currency
+              : "ARS",
+          amount: numberOrZero(raw.amount),
+        },
+      ];
+    })
+  );
   const conversions = conversionsSnapshot.docs.map(serializeConversion);
   const convertedArs = conversions.reduce((total, conversion) => {
     const date = new Date(conversion.date);
@@ -210,11 +220,7 @@ export async function buildMonthlyBudgetSummary(
   );
   const currentCard = sumCardTotals(projections, month);
   const nextCard = sumCardTotals(projections, nextMonth);
-  const usdRequired =
-    currentCard.usd > 0 ||
-    nextCard.usd > 0 ||
-    foreignBalances.available.USD > 0 ||
-    foreignBalances.available.USDT > 0;
+  const usdRequired = currentCard.usd > 0 || nextCard.usd > 0;
   const rate = usdRequired ? await fetchUsdRate() : null;
   const missingSources: string[] = [];
   if (missingVariableUsdRate) missingSources.push("Conversión de movimientos USD");
@@ -223,20 +229,6 @@ export async function buildMonthlyBudgetSummary(
   const currentCardArs =
     currentCard.ars + (rate ? currentCard.usd * rate.price : 0);
   const nextCardArs = nextCard.ars + (rate ? nextCard.usd * rate.price : 0);
-  const legacyCalculation = calculateMonthlyBudget({
-    expectedIncome: config.expectedIncome,
-    savingsMode: config.savingsMode,
-    savingsValue: config.savingsValue,
-    fixedExpenses: fixedCommitted,
-    committedInstallments: currentCardArs,
-    variableSpent,
-    daysRemaining: timing.daysRemaining,
-    daysInMonth: timing.daysInMonth,
-    elapsedDays: timing.elapsedDays,
-    hasLimitWarning,
-    hasLimitExceeded,
-    incomplete: !config.configured || missingSources.length > 0,
-  });
   const variableCoverage = limits.reduce(
     (total, limit) => total + Math.max(limit.limitAmount, limit.spentAmount),
     0
@@ -255,7 +247,7 @@ export async function buildMonthlyBudgetSummary(
   const cashStatus = calculateMonthlyBudget({
     expectedIncome: cashFunding.fundedArs,
     savingsMode: "fixed",
-    savingsValue: 0,
+    savingsValue: config.arsBufferAmount,
     fixedExpenses: fixedCommitted,
     committedInstallments: currentCardArs,
     variableSpent,
@@ -269,15 +261,21 @@ export async function buildMonthlyBudgetSummary(
       config.openingArsBalance === null ||
       missingSources.length > 0,
   });
-  const cashMode = config.fundingMode === "cash";
-  const calculation = cashMode
-    ? {
-        ...cashStatus,
-        savingsReserved: 0,
-        available: cashFunding.available,
-        dailyAvailable: cashFunding.dailyAvailable,
-      }
-    : legacyCalculation;
+  const calculation = {
+    ...cashStatus,
+    status: resolveCashBudgetStatus({
+      incomplete:
+        !config.configured ||
+        config.openingArsBalance === null ||
+        missingSources.length > 0,
+      hasLimitExceeded,
+      conversionNeededArs: cashFunding.conversionNeededArs,
+      aheadOfPace: cashStatus.aheadOfPace,
+      hasLimitWarning,
+    }),
+    available: cashFunding.available,
+    dailyAvailable: cashFunding.dailyAvailable,
+  };
 
   const alerts = buildAlerts({
     limits,
@@ -295,7 +293,7 @@ export async function buildMonthlyBudgetSummary(
       expectedIncome: config.expectedIncome,
       savingsMode: config.savingsMode,
       savingsValue: config.savingsValue,
-      fundingMode: config.fundingMode,
+      fundingMode: "cash",
       arsBufferAmount: config.arsBufferAmount,
     },
     status: calculation.status,
@@ -316,7 +314,7 @@ export async function buildMonthlyBudgetSummary(
       nextMonthCardCommittedUsd: nextCard.usd,
     },
     funding: {
-      mode: config.fundingMode,
+      mode: "cash",
       openingArsBalance: config.openingArsBalance,
       directArsIncome,
       convertedArs,
@@ -334,7 +332,7 @@ export async function buildMonthlyBudgetSummary(
       complete:
         config.configured &&
         missingSources.length === 0 &&
-        (!cashMode || config.openingArsBalance !== null),
+        config.openingArsBalance !== null,
       missingSources,
       usdRate: rate?.price ?? null,
       usdRateUpdatedAt: rate?.updatedAt ?? null,
@@ -358,7 +356,7 @@ function buildAlerts({
   const alerts: BudgetAlert[] = [];
   for (const limit of limits) {
     if (limit.percentageUsed < 80) continue;
-    const exceeded = limit.percentageUsed >= 100;
+    const exceeded = limit.percentageUsed > 100;
     alerts.push({
       id: `limit-${limit.category}`,
       severity: exceeded ? "danger" : "warning",

@@ -4,12 +4,15 @@ import test from "node:test";
 import {
   calculateMonthlyBudget,
   calculateCashFunding,
+  calculateDirectArsIncome,
   calculateForeignBalances,
   calculateSavingsAmount,
+  dedupeSpendingLimits,
   getLimitSummary,
   getMonthTiming,
   isFixedExpenseActive,
   resolveFixedExpenseAmount,
+  resolveCashBudgetStatus,
   type FixedExpense,
 } from "../lib/budget";
 
@@ -111,8 +114,8 @@ test("cash funding separates real availability from monthly coverage", () => {
   });
   assert.deepEqual(result, {
     fundedArs: 1_150_000,
-    available: 450_000,
-    dailyAvailable: 45_000,
+    available: 350_000,
+    dailyAvailable: 35_000,
     coverageTarget: 1_000_000,
     conversionNeededArs: 0,
   });
@@ -143,6 +146,77 @@ test("foreign balances keep USD and USDT separate", () => {
       available: { USD: 450, USDT: 500 },
     }
   );
+});
+
+test("only ARS income increases direct peso funding", () => {
+  assert.equal(
+    calculateDirectArsIncome([
+      { currency: "ARS", amount: 100_000 },
+      { currency: "USD", amount: 650 },
+      { currency: "USDT", amount: 800 },
+    ]),
+    100_000
+  );
+});
+
+test("duplicate spending limits keep the most recently updated category", () => {
+  assert.deepEqual(
+    dedupeSpendingLimits([
+      {
+        category: "Comida comprada",
+        limitAmount: 60_000,
+        sourceId: "older",
+        updatedAtMs: 100,
+      },
+      {
+        category: "comida comprada",
+        limitAmount: 75_000,
+        sourceId: "newer",
+        updatedAtMs: 200,
+      },
+      {
+        category: "Transporte",
+        limitAmount: 30_000,
+        sourceId: "transport",
+        updatedAtMs: 150,
+      },
+    ]),
+    [
+      { category: "comida comprada", limitAmount: 75_000 },
+      { category: "Transporte", limitAmount: 30_000 },
+    ]
+  );
+});
+
+test("cash status distinguishes missing coverage from overspending", () => {
+  const base = {
+    incomplete: false,
+    hasLimitExceeded: false,
+    conversionNeededArs: 0,
+    aheadOfPace: false,
+    hasLimitWarning: false,
+  };
+  assert.equal(
+    resolveCashBudgetStatus({ ...base, conversionNeededArs: 874_078 }),
+    "unfunded"
+  );
+  assert.equal(
+    resolveCashBudgetStatus({
+      ...base,
+      hasLimitExceeded: true,
+      conversionNeededArs: 874_078,
+    }),
+    "over"
+  );
+  assert.equal(
+    resolveCashBudgetStatus({ ...base, hasLimitWarning: true }),
+    "tight"
+  );
+  assert.equal(
+    resolveCashBudgetStatus({ ...base, incomplete: true }),
+    "incomplete"
+  );
+  assert.equal(resolveCashBudgetStatus(base), "good");
 });
 
 test("fixed expense activity respects the configured month range", () => {

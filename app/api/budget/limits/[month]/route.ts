@@ -9,7 +9,7 @@ import {
 import {
   parsePeriodMonth,
   parseSpendingLimitsInput,
-  serializeSpendingLimit,
+  serializeUniqueSpendingLimits,
   toBudgetErrorResponse,
 } from "@/lib/server/budget-data";
 
@@ -24,9 +24,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       .where("userId", "==", uid)
       .get();
     return NextResponse.json({
-      limits: snapshot.docs
-        .filter((doc) => doc.data().month === month)
-        .map(serializeSpendingLimit),
+      limits: serializeUniqueSpendingLimits(
+        snapshot.docs.filter((doc) => doc.data().month === month)
+      ),
     });
   } catch (error) {
     return handleError(error, "No se pudieron cargar los límites");

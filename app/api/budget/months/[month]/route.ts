@@ -33,7 +33,10 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     const { uid } = await authenticateRequest(request);
     const month = parsePeriodMonth((await params).month);
     const body = await request.json();
-    const input = parsePreferencesInput(body);
+    const input = {
+      ...parsePreferencesInput(body),
+      fundingMode: "cash" as const,
+    };
     const hasOpeningArsBalance = Object.prototype.hasOwnProperty.call(
       body,
       "openingArsBalance"

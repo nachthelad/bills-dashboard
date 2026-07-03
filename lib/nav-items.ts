@@ -11,7 +11,7 @@ import {
 
 export const navItems = [
   { title: "Mi mes", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Movimientos", url: "/expenses", icon: ShoppingCart },
+  { title: "Gastos", url: "/expenses", icon: ShoppingCart },
   { title: "Boletas", url: "/documents", icon: Receipt },
   { title: "Tarjetas", url: "/credit-cards", icon: CreditCard },
 ] as const;

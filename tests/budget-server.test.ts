@@ -65,6 +65,7 @@ test("budget inputs accept pasted Argentine amounts", () => {
   );
   assert.equal(parseOpeningArsBalance("900.000,2"), 900_000.2);
   assert.equal(parseOpeningArsBalance(""), null);
+  assert.equal(parseOpeningArsBalance(0), 0);
 });
 
 test("period validation rejects malformed months", () => {

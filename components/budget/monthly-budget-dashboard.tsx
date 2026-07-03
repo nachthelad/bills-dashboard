@@ -4,15 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
-  ArrowRight,
   Check,
   Gauge,
   Pencil,
   ReceiptText,
-  ShieldCheck,
   Sparkles,
   CircleDollarSign,
-  WalletCards,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth-context";
@@ -51,7 +48,7 @@ import { cn } from "@/lib/utils";
 const STATUS_COPY = {
   good: {
     label: "Vas bien",
-    description: "Tu ritmo de gasto cuida el ahorro que reservaste.",
+    description: "Tu ritmo de gasto respeta los fondos y la reserva del mes.",
     className: "bg-emerald-400 text-emerald-950",
   },
   tight: {
@@ -61,12 +58,18 @@ const STATUS_COPY = {
   },
   over: {
     label: "Te estás pasando",
-    description: "El gasto actual ya compromete tu objetivo del mes.",
+    description: "El gasto actual ya supera los pesos disponibles del mes.",
     className: "bg-rose-400 text-rose-950",
+  },
+  unfunded: {
+    label: "Falta cubrir",
+    description:
+      "Todavía faltan cobros o conversiones para cubrir todo el mes.",
+    className: "bg-sky-300 text-sky-950",
   },
   incomplete: {
     label: "Datos incompletos",
-    description: "Completá el plan o revisá las fuentes pendientes.",
+    description: "Cargá el saldo inicial o revisá las fuentes pendientes.",
     className: "bg-slate-300 text-slate-900",
   },
 } as const;
@@ -158,7 +161,10 @@ export function MonthlyBudgetDashboard() {
     );
   }
 
-  if (!summary.configured) {
+  if (
+    !summary.configured ||
+    summary.funding.openingArsBalance === null
+  ) {
     return (
       <div className="mx-auto max-w-3xl space-y-8 py-6">
         <div className="space-y-3">
@@ -166,30 +172,29 @@ export function MonthlyBudgetDashboard() {
             <Sparkles className="size-3" /> Nueva forma de usar Tolva
           </Badge>
           <h1 className="max-w-2xl text-4xl font-black tracking-[-0.04em] sm:text-5xl">
-            Primero reservamos. Después decidimos cuánto gastar.
+            Empezá con los pesos que realmente tenés.
           </h1>
           <p className="max-w-xl text-lg text-muted-foreground">
-            Configurá este mes para que Tolva pueda mostrarte un número útil
-            antes de cada compra.
+            Cargá el saldo ARS inicial y una reserva fija para calcular cuánto
+            podés gastar hoy.
           </p>
         </div>
         <Card className="border-primary/20 shadow-xl shadow-primary/5">
           <CardHeader>
-            <CardTitle>Plan de {formatMonth(month)}</CardTitle>
+            <CardTitle>Fondos de {formatMonth(month)}</CardTitle>
           </CardHeader>
           <CardContent>
             <BudgetPlanForm
               initialValue={{
-                expectedIncome: summary.amounts.expectedIncome,
-                savingsMode: "percentage",
-                savingsValue: 20,
-                fundingMode: "planned",
-                arsBufferAmount: 0,
+                expectedIncome: summary.plan.expectedIncome,
+                savingsMode: summary.plan.savingsMode,
+                savingsValue: summary.plan.savingsValue,
+                fundingMode: "cash",
+                arsBufferAmount: summary.plan.arsBufferAmount,
                 openingArsBalance: null,
               }}
               onSave={savePlan}
               submitLabel="Empezar mi mes"
-              showOpeningBalance
             />
           </CardContent>
         </Card>
@@ -228,14 +233,16 @@ export function MonthlyBudgetDashboard() {
               )}
               {status.label}
             </Badge>
-            <p className="text-sm text-slate-400">Disponible real</p>
+            <p className="text-sm text-slate-400">Disponible ARS hoy</p>
             <p className="mt-1 text-4xl font-black tracking-[-0.05em] sm:text-6xl">
-              {formatAmount(summary.amounts.available, "ARS", showAmounts)}
+              {formatAmount(
+                Math.max(0, summary.amounts.available),
+                "ARS",
+                showAmounts
+              )}
             </p>
             <p className="mt-4 max-w-md text-sm text-slate-300">
-              {summary.funding.mode === "cash"
-                ? "Calculado con los pesos que realmente tenés disponibles."
-                : status.description}
+              {status.description}
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
@@ -252,27 +259,25 @@ export function MonthlyBudgetDashboard() {
             </p>
           </div>
         </div>
-        <div className="relative mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-5">
+        <div className="relative mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-4 xl:grid-cols-8">
           <Metric
-            label={summary.funding.mode === "cash" ? "Fondos ARS" : "Ingreso"}
-            value={
-              summary.funding.mode === "cash"
-                ? summary.funding.fundedArs
-                : summary.amounts.expectedIncome
-            }
+            label="Saldo inicial"
+            value={summary.funding.openingArsBalance ?? 0}
             show={showAmounts}
           />
           <Metric
-            label={
-              summary.funding.mode === "cash"
-                ? "Convertido"
-                : "Ahorro reservado"
-            }
-            value={
-              summary.funding.mode === "cash"
-                ? summary.funding.convertedArs
-                : summary.amounts.savingsReserved
-            }
+            label="Cobros ARS"
+            value={summary.funding.directArsIncome}
+            show={showAmounts}
+          />
+          <Metric
+            label="Convertido"
+            value={summary.funding.convertedArs}
+            show={showAmounts}
+          />
+          <Metric
+            label="Reserva"
+            value={summary.plan.arsBufferAmount}
             show={showAmounts}
           />
           <Metric
@@ -290,84 +295,87 @@ export function MonthlyBudgetDashboard() {
             value={summary.amounts.variableSpent}
             show={showAmounts}
           />
+          <Metric
+            label="Próximo sueldo comprometido"
+            value={summary.amounts.nextMonthCardCommitted}
+            show={showAmounts}
+          />
         </div>
       </section>
 
-      {summary.funding.mode === "cash" ? (
-        <Card className="overflow-hidden">
-          <CardHeader className="sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <CircleDollarSign className="size-5 text-emerald-600" />
-                Fondos del mes
-              </CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Cobros reales, conversiones y cobertura en pesos.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button asChild size="sm" variant="outline">
-                <Link href="/income">Registrar cobro</Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link href="/income#conversions">Registrar conversión</Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 pt-6 md:grid-cols-4">
-            <FundingMetric
-              label="Cobrado"
-              value={`USD ${summary.funding.foreignReceived.USD.toLocaleString("es-AR")} · USDT ${summary.funding.foreignReceived.USDT.toLocaleString("es-AR")}`}
-            />
-            <FundingMetric
-              label="Sin convertir"
-              value={`USD ${summary.funding.foreignAvailable.USD.toLocaleString("es-AR")} · USDT ${summary.funding.foreignAvailable.USDT.toLocaleString("es-AR")}`}
-            />
-            <FundingMetric
-              label="Convertido a ARS"
-              value={formatAmount(
-                summary.funding.convertedArs,
-                "ARS",
-                showAmounts
-              )}
-            />
-            <FundingMetric
-              label="Falta cubrir"
-              value={formatAmount(
-                summary.funding.conversionNeededArs,
-                "ARS",
-                showAmounts
-              )}
-              accent={summary.funding.conversionNeededArs > 0}
-            />
-          </CardContent>
-          <div className="border-t px-6 py-4">
-            <div className="mb-2 flex items-center justify-between gap-4 text-xs">
-              <span className="font-semibold">Cobertura mensual</span>
-              <span className="text-muted-foreground">
-                {formatAmount(summary.funding.fundedArs, "ARS", showAmounts)} de{" "}
-                {formatAmount(
-                  summary.funding.coverageTarget,
-                  "ARS",
-                  showAmounts
-                )}
-              </span>
-            </div>
-            <Progress
-              value={
-                summary.funding.coverageTarget > 0
-                  ? Math.min(
-                      100,
-                      (summary.funding.fundedArs /
-                        summary.funding.coverageTarget) *
-                        100
-                    )
-                  : 100
-              }
-            />
+      <Card className="overflow-hidden">
+        <CardHeader className="sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <CircleDollarSign className="size-5 text-emerald-600" />
+              Fondos del mes
+            </CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cobros reales, conversiones y cobertura en pesos.
+            </p>
           </div>
-        </Card>
-      ) : null}
+          <div className="flex gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link href="/income">Registrar cobro</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link href="/income#conversions">Registrar conversión</Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4 pt-6 md:grid-cols-4">
+          <FundingMetric
+            label="Cobrado"
+            value={`USD ${summary.funding.foreignReceived.USD.toLocaleString("es-AR")} · USDT ${summary.funding.foreignReceived.USDT.toLocaleString("es-AR")}`}
+          />
+          <FundingMetric
+            label="Sin convertir"
+            value={`USD ${summary.funding.foreignAvailable.USD.toLocaleString("es-AR")} · USDT ${summary.funding.foreignAvailable.USDT.toLocaleString("es-AR")}`}
+          />
+          <FundingMetric
+            label="Convertido a ARS"
+            value={formatAmount(
+              summary.funding.convertedArs,
+              "ARS",
+              showAmounts
+            )}
+          />
+          <FundingMetric
+            label="Falta cubrir"
+            value={formatAmount(
+              summary.funding.conversionNeededArs,
+              "ARS",
+              showAmounts
+            )}
+            accent={summary.funding.conversionNeededArs > 0}
+          />
+        </CardContent>
+        <div className="border-t px-6 py-4">
+          <div className="mb-2 flex items-center justify-between gap-4 text-xs">
+            <span className="font-semibold">Cobertura mensual</span>
+            <span className="text-muted-foreground">
+              {formatAmount(summary.funding.fundedArs, "ARS", showAmounts)} de{" "}
+              {formatAmount(
+                summary.funding.coverageTarget,
+                "ARS",
+                showAmounts
+              )}
+            </span>
+          </div>
+          <Progress
+            value={
+              summary.funding.coverageTarget > 0
+                ? Math.min(
+                    100,
+                    (summary.funding.fundedArs /
+                      summary.funding.coverageTarget) *
+                      100
+                  )
+                : 100
+            }
+          />
+        </div>
+      </Card>
 
       {summary.dataQuality.missingSources.length > 0 ? (
         <div className="rounded-xl border border-amber-400/40 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/20 dark:text-amber-200">
@@ -376,215 +384,138 @@ export function MonthlyBudgetDashboard() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_.75fr]">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <div>
-                <CardTitle>Límites variables</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Lo que todavía podés ajustar durante el mes.
-                </p>
-              </div>
-              <Link
-                href="/budget#limits"
-                className="text-sm font-semibold text-primary hover:underline"
-              >
-                Configurar
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {summary.limits.length === 0 ? (
-                <EmptyLine
-                  text="Todavía no definiste límites por categoría."
-                  href="/budget#limits"
-                />
-              ) : (
-                summary.limits.map((limit) => (
-                  <div key={limit.category} className="space-y-2">
-                    <div className="flex items-end justify-between gap-4">
-                      <div>
-                        <p className="font-semibold">{limit.category}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatAmount(
-                            limit.spentAmount,
-                            "ARS",
-                            showAmounts
-                          )}{" "}
-                          de{" "}
-                          {formatAmount(
-                            limit.limitAmount,
-                            "ARS",
-                            showAmounts
-                          )}
-                        </p>
-                      </div>
-                      <span
-                        className={cn(
-                          "text-sm font-bold",
-                          limit.percentageUsed >= 100
-                            ? "text-destructive"
-                            : limit.percentageUsed >= 80
-                              ? "text-amber-600"
-                              : "text-muted-foreground"
-                        )}
-                      >
-                        {limit.percentageUsed}%
-                      </span>
-                    </div>
-                    <Progress
-                      value={Math.min(100, limit.percentageUsed)}
-                      className={cn(
-                        limit.percentageUsed >= 100 &&
-                          "[&_[data-slot=progress-indicator]]:bg-destructive",
-                        limit.percentageUsed >= 80 &&
-                          limit.percentageUsed < 100 &&
-                          "[&_[data-slot=progress-indicator]]:bg-amber-500"
-                      )}
-                    />
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Gastos fijos</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {summary.fixedExpenses.length === 0 ? (
-                <EmptyLine
-                  text="Agregá tus servicios y pagos recurrentes."
-                  href="/budget#fixed-expenses"
-                />
-              ) : (
-                summary.fixedExpenses.map((expense) => (
-                  <div
-                    key={expense.id}
-                    className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          "grid size-9 shrink-0 place-items-center rounded-full",
-                          expense.status === "paid"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : expense.overdue
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {expense.status === "paid" ? (
-                          <Check className="size-4" />
-                        ) : (
-                          <ReceiptText className="size-4" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-semibold">{expense.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {expense.status === "paid"
-                            ? "Pagado"
-                            : expense.dueDay
-                              ? `Vence el día ${expense.dueDay}`
-                              : "Pendiente"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 sm:justify-end">
-                      <span className="font-bold">
-                        {formatAmount(
-                          expense.budgetedAmount,
-                          "ARS",
-                          showAmounts
-                        )}
-                      </span>
-                      {expense.status === "pending" ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setPaidAmount(String(expense.budgetedAmount));
-                            setPayingExpense(expense);
-                          }}
-                        >
-                          Marcar pagado
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="border-primary/20 bg-primary/[0.035]">
-            <CardHeader>
-              <div className="mb-2 grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-                <WalletCards className="size-5" />
-              </div>
-              <CardTitle>Próximo sueldo comprometido</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-black tracking-tight">
-                {formatAmount(
-                  summary.amounts.nextMonthCardCommitted,
-                  "ARS",
-                  showAmounts
-                )}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle>Límites variables</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Lo que todavía podés ajustar durante el mes.
               </p>
-              {summary.amounts.nextMonthCardCommittedUsd > 0 ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Incluye USD{" "}
-                  {summary.amounts.nextMonthCardCommittedUsd.toFixed(2)}
-                </p>
-              ) : null}
-              <Button asChild variant="link" className="mt-3 h-auto p-0">
-                <Link href="/credit-cards">
-                  Ver cuotas <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Para tener en cuenta</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {summary.alerts.length === 0 ? (
-                <div className="flex gap-3 rounded-xl bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-200">
-                  <ShieldCheck className="mt-0.5 size-5 shrink-0" />
-                  <p className="text-sm">
-                    No hay alertas accionables por ahora.
-                  </p>
-                </div>
-              ) : (
-                summary.alerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className={cn(
-                      "rounded-xl border-l-4 p-4",
-                      alert.severity === "danger"
-                        ? "border-l-destructive bg-destructive/5"
-                        : alert.severity === "warning"
-                          ? "border-l-amber-500 bg-amber-500/5"
-                          : "border-l-sky-500 bg-sky-500/5"
-                    )}
-                  >
-                    <p className="text-sm font-bold">{alert.title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {alert.description}
-                    </p>
+            </div>
+            <Link
+              href="/budget#limits"
+              className="text-sm font-semibold text-primary hover:underline"
+            >
+              Configurar
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {summary.limits.length === 0 ? (
+              <EmptyLine
+                text="Todavía no definiste límites por categoría."
+                href="/budget#limits"
+              />
+            ) : (
+              summary.limits.map((limit) => (
+                <div key={limit.category} className="space-y-2">
+                  <div className="flex items-end justify-between gap-4">
+                    <div>
+                      <p className="font-semibold">{limit.category}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatAmount(limit.spentAmount, "ARS", showAmounts)} de{" "}
+                        {formatAmount(limit.limitAmount, "ARS", showAmounts)}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "text-sm font-bold",
+                        limit.percentageUsed > 100
+                          ? "text-destructive"
+                          : limit.percentageUsed >= 80
+                            ? "text-amber-600"
+                            : "text-muted-foreground"
+                      )}
+                    >
+                      {limit.percentageUsed}%
+                    </span>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                  <Progress
+                    value={Math.min(100, limit.percentageUsed)}
+                    className={cn(
+                      limit.percentageUsed > 100 &&
+                        "[&_[data-slot=progress-indicator]]:bg-destructive",
+                      limit.percentageUsed >= 80 &&
+                        limit.percentageUsed <= 100 &&
+                        "[&_[data-slot=progress-indicator]]:bg-amber-500"
+                    )}
+                  />
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Gastos fijos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {summary.fixedExpenses.length === 0 ? (
+              <EmptyLine
+                text="Agregá tus servicios y pagos recurrentes."
+                href="/budget#fixed-expenses"
+              />
+            ) : (
+              summary.fixedExpenses.map((expense) => (
+                <div
+                  key={expense.id}
+                  className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        "grid size-9 shrink-0 place-items-center rounded-full",
+                        expense.status === "paid"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : expense.overdue
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {expense.status === "paid" ? (
+                        <Check className="size-4" />
+                      ) : (
+                        <ReceiptText className="size-4" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold">{expense.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {expense.status === "paid"
+                          ? "Pagado"
+                          : expense.dueDay
+                            ? `Vence el día ${expense.dueDay}`
+                            : "Pendiente"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 sm:justify-end">
+                    <span className="font-bold">
+                      {formatAmount(
+                        expense.budgetedAmount,
+                        "ARS",
+                        showAmounts
+                      )}
+                    </span>
+                    {expense.status === "pending" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setPaidAmount(String(expense.budgetedAmount));
+                          setPayingExpense(expense);
+                        }}
+                      >
+                        Marcar pagado
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Dialog open={planOpen} onOpenChange={setPlanOpen}>
@@ -605,7 +536,6 @@ export function MonthlyBudgetDashboard() {
               openingArsBalance: summary.funding.openingArsBalance,
             }}
             onSave={savePlan}
-            showOpeningBalance
           />
         </DialogContent>
       </Dialog>
