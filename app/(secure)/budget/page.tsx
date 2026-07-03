@@ -6,8 +6,8 @@ export default function BudgetPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold">Mi presupuesto</h1>
         <p className="max-w-3xl text-muted-foreground">
-          Definí cómo se financia tu mes, tus ingresos esperados y los límites
-          que querés cuidar.
+          Definí tu saldo inicial, la reserva que no querés gastar y los
+          límites que querés cuidar.
         </p>
       </div>
       <div className="max-w-4xl">

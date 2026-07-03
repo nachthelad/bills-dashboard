@@ -28,34 +28,57 @@ import { DatePickerPopover } from "@/components/ui/date-picker-popover";
 import { getLocalTodayIso, isoToDate } from "@/lib/date-picker";
 import { parseAmountInput } from "@/lib/amount-parser";
 import { fetchIncomeSources } from "@/lib/funding-client";
-import type { IncomeSource } from "@/lib/budget";
+import type { IncomeSource, MoneyCurrency } from "@/lib/budget";
 
 interface AddIncomeModalProps {
-  onSuccess: () => void;
+  onSuccess?: () => void;
+  presetSource?: IncomeSource;
+  trigger?: React.ReactNode;
 }
 
-function createEmptyForm() {
+type IncomeFormState = {
+  name: string;
+  source: string;
+  amount: string;
+  currency: MoneyCurrency;
+  incomeSourceId: string | null;
+  date: string;
+};
+
+function createEmptyForm(presetSource?: IncomeSource): IncomeFormState {
   return {
-    name: "",
+    name: presetSource?.name ?? "",
     source: "Salary",
     amount: "",
-    currency: "ARS",
-    incomeSourceId: null as string | null,
+    currency: presetSource?.currency ?? "ARS",
+    incomeSourceId: presetSource?.id ?? (null as string | null),
     date: getLocalTodayIso(),
   };
 }
 
-export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
+export function AddIncomeModal({
+  onSuccess = () => {},
+  presetSource,
+  trigger,
+}: AddIncomeModalProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState(createEmptyForm);
-  const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
+  const [formData, setFormData] = useState(() =>
+    createEmptyForm(presetSource)
+  );
+  const [incomeSources, setIncomeSources] = useState<IncomeSource[]>(
+    presetSource ? [presetSource] : []
+  );
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (presetSource) {
+      setIncomeSources([presetSource]);
+      return;
+    }
     if (!user) return;
     let cancelled = false;
     void user.getIdToken().then(fetchIncomeSources).then((sources) => {
@@ -64,13 +87,13 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [presetSource, user]);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) {
       setError(null);
-      setFormData(createEmptyForm());
+      setFormData(createEmptyForm(presetSource));
     }
   };
 
@@ -108,7 +131,7 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
         date: parsedDate,
       });
       setOpen(false);
-      setFormData(createEmptyForm());
+      setFormData(createEmptyForm(presetSource));
       onSuccess();
     } catch (err) {
       console.error("Failed to add income:", err);
@@ -143,35 +166,39 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
         />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="text-foreground font-medium">
-            Fuente configurada
-          </Label>
-          <Select
-            value={formData.incomeSourceId ?? "none"}
-            onValueChange={(value) => {
-              const selected = incomeSources.find((source) => source.id === value);
-              setFormData((current) => ({
-                ...current,
-                incomeSourceId: value === "none" ? null : value,
-                name: selected?.name ?? current.name,
-                currency: selected?.currency ?? current.currency,
-              }));
-            }}
-          >
-            <SelectTrigger className="h-11 bg-background sm:h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Sin vincular</SelectItem>
-              {incomeSources.map((source) => (
-                <SelectItem key={source.id} value={source.id}>
-                  {source.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {presetSource ? null : (
+          <div className="space-y-2">
+            <Label className="text-foreground font-medium">
+              Fuente configurada
+            </Label>
+            <Select
+              value={formData.incomeSourceId ?? "none"}
+              onValueChange={(value) => {
+                const selected = incomeSources.find(
+                  (source) => source.id === value
+                );
+                setFormData((current) => ({
+                  ...current,
+                  incomeSourceId: value === "none" ? null : value,
+                  name: selected?.name ?? current.name,
+                  currency: selected?.currency ?? current.currency,
+                }));
+              }}
+            >
+              <SelectTrigger className="h-11 bg-background sm:h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin vincular</SelectItem>
+                {incomeSources.map((source) => (
+                  <SelectItem key={source.id} value={source.id}>
+                    {source.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="inc-source" className="text-foreground font-medium">
             Fuente
@@ -214,9 +241,11 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
           </Label>
           <Select
             value={formData.currency}
-            onValueChange={(value) =>
-              setFormData({ ...formData, currency: value })
-            }
+            onValueChange={(value) => {
+              if (value === "ARS" || value === "USD" || value === "USDT") {
+                setFormData({ ...formData, currency: value });
+              }
+            }}
           >
             <SelectTrigger id="inc-currency" className="bg-background border-border text-foreground h-11 sm:h-9">
               <SelectValue />
@@ -267,8 +296,23 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
     </form>
   );
 
-  const title = "Agregar ingreso";
-  const description = "Registrá una nueva entrada de ingreso.";
+  const title = presetSource
+    ? `Registrar cobro de ${presetSource.name}`
+    : "Agregar ingreso";
+  const description = presetSource
+    ? `El cobro quedará vinculado a ${presetSource.name}.`
+    : "Registrá una nueva entrada de ingreso.";
+  const defaultTrigger = (
+    <Button
+      size={isMobile ? "icon" : "default"}
+      className="bg-emerald-500 text-slate-900 hover:bg-emerald-400"
+      aria-label="Agregar ingreso"
+      title="Agregar ingreso"
+    >
+      <Plus className="w-4 h-4" />
+      {isMobile ? null : "Agregar ingreso"}
+    </Button>
+  );
 
   if (isMobile) {
     return (
@@ -278,16 +322,7 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
         title={title}
         description={description}
         bodyClassName="pr-1"
-        trigger={
-          <Button
-            size="icon"
-            className="bg-emerald-500 text-slate-900 hover:bg-emerald-400"
-            aria-label="Agregar ingreso"
-            title="Agregar ingreso"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        }
+        trigger={trigger ?? defaultTrigger}
       >
         {formContent}
       </MobileDrawer>
@@ -297,10 +332,7 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="bg-emerald-500 text-slate-900 hover:bg-emerald-400">
-          <Plus className="w-4 h-4 mr-2" />
-          Agregar ingreso
-        </Button>
+        {trigger ?? defaultTrigger}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[480px] bg-card border-border text-foreground">
         <DialogHeader>

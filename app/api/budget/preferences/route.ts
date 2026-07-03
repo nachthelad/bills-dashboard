@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         expectedIncome: 0,
         savingsMode: "percentage",
         savingsValue: 20,
-        fundingMode: "planned",
+        fundingMode: "cash",
         arsBufferAmount: 0,
       },
     });
@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { uid } = await authenticateRequest(request);
-    const input = parsePreferencesInput(await request.json());
+    const input = {
+      ...parsePreferencesInput(await request.json()),
+      fundingMode: "cash" as const,
+    };
     const ref = getAdminFirestore().collection("budgetPreferences").doc(uid);
     await ref.set(
       { userId: uid, ...input, updatedAt: Timestamp.now() },

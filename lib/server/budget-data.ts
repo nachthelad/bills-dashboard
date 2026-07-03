@@ -3,6 +3,7 @@ import type { DocumentSnapshot } from "firebase-admin/firestore";
 import { parseAmountInput } from "@/lib/amount-parser";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import {
+  dedupeSpendingLimits,
   PERIOD_MONTH_RE,
   type BudgetPreferences,
   type FixedExpense,
@@ -47,7 +48,7 @@ export function parsePreferencesInput(body: Record<string, unknown>) {
     body.fundingMode === "cash" ? "cash" : "planned";
   const arsBufferAmount = parseNonNegativeAmount(
     body.arsBufferAmount ?? 0,
-    "El colchón en pesos no es válido"
+    "La reserva fija no es válida"
   );
   return {
     expectedIncome,
@@ -245,6 +246,21 @@ export function serializeSpendingLimit(doc: DocumentSnapshot): SpendingLimit {
   };
 }
 
+export function serializeUniqueSpendingLimits(
+  docs: DocumentSnapshot[]
+): SpendingLimit[] {
+  return dedupeSpendingLimits(
+    docs.map((doc) => {
+      const serialized = serializeSpendingLimit(doc);
+      return {
+        ...serialized,
+        sourceId: doc.id,
+        updatedAtMs: toMillis(doc.data()?.updatedAt),
+      };
+    })
+  );
+}
+
 export function toBudgetErrorResponse(error: unknown) {
   if (error instanceof BudgetDataError) {
     return Response.json(
@@ -288,4 +304,16 @@ function parseNonNegativeAmount(value: unknown, message: string) {
 
 function numberOrZero(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function toMillis(value: unknown) {
+  if (
+    value &&
+    typeof value === "object" &&
+    "toMillis" in value &&
+    typeof value.toMillis === "function"
+  ) {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  return value instanceof Date ? value.getTime() : 0;
 }

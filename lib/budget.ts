@@ -3,7 +3,12 @@ export const PERIOD_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export type SavingsMode = "fixed" | "percentage";
 export type FundingMode = "planned" | "cash";
-export type BudgetStatus = "good" | "tight" | "over" | "incomplete";
+export type BudgetStatus =
+  | "good"
+  | "tight"
+  | "over"
+  | "unfunded"
+  | "incomplete";
 export type FixedExpenseStatus = "pending" | "paid";
 export type MoneyCurrency = "ARS" | "USD" | "USDT";
 export type ForeignCurrency = Exclude<MoneyCurrency, "ARS">;
@@ -68,6 +73,11 @@ export type FixedExpensePeriod = {
 export type SpendingLimit = {
   category: string;
   limitAmount: number;
+};
+
+export type SpendingLimitCandidate = SpendingLimit & {
+  sourceId?: string;
+  updatedAtMs?: number;
 };
 
 export type BudgetAlert = {
@@ -138,6 +148,14 @@ export type ForeignBalanceInput = {
   amount: number;
 };
 
+export function calculateDirectArsIncome(income: ForeignBalanceInput[]) {
+  return income.reduce(
+    (total, entry) =>
+      entry.currency === "ARS" ? total + entry.amount : total,
+    0
+  );
+}
+
 export function calculateForeignBalances(
   income: ForeignBalanceInput[],
   conversions: Array<Pick<CurrencyConversion, "fromCurrency" | "fromAmount">>
@@ -181,7 +199,8 @@ export function calculateCashFunding(input: {
     fundedArsCents -
     toCents(input.fixedExpenses) -
     toCents(input.committedInstallments) -
-    toCents(input.variableSpent);
+    toCents(input.variableSpent) -
+    toCents(input.arsBufferAmount);
   const coverageTargetCents =
     toCents(input.fixedExpenses) +
     toCents(input.committedInstallments) +
@@ -200,6 +219,20 @@ export function calculateCashFunding(input: {
       Math.max(0, coverageTargetCents - fundedArsCents)
     ),
   };
+}
+
+export function resolveCashBudgetStatus(input: {
+  incomplete: boolean;
+  hasLimitExceeded: boolean;
+  conversionNeededArs: number;
+  aheadOfPace: boolean;
+  hasLimitWarning: boolean;
+}): BudgetStatus {
+  if (input.incomplete) return "incomplete";
+  if (input.hasLimitExceeded) return "over";
+  if (input.conversionNeededArs > 0) return "unfunded";
+  if (input.aheadOfPace || input.hasLimitWarning) return "tight";
+  return "good";
 }
 
 type MonthlyBudgetCalculationInput = {
@@ -361,4 +394,30 @@ export function getLimitSummary(
           : 0,
     };
   });
+}
+
+export function dedupeSpendingLimits(
+  candidates: SpendingLimitCandidate[]
+): SpendingLimit[] {
+  const unique = new Map<string, SpendingLimitCandidate>();
+  for (const candidate of candidates) {
+    const key = candidate.category.trim().toLocaleLowerCase("es");
+    const current = unique.get(key);
+    const candidateTime = candidate.updatedAtMs ?? 0;
+    const currentTime = current?.updatedAtMs ?? 0;
+    const candidateId = candidate.sourceId ?? "";
+    const currentId = current?.sourceId ?? "";
+    if (
+      !current ||
+      candidateTime > currentTime ||
+      (candidateTime === currentTime &&
+        candidateId.localeCompare(currentId) > 0)
+    ) {
+      unique.set(key, candidate);
+    }
+  }
+  return Array.from(unique.values()).map(({ category, limitAmount }) => ({
+    category,
+    limitAmount,
+  }));
 }

@@ -16,8 +16,8 @@ import { parseAmountInput } from "@/lib/amount-parser";
 import {
   createFixedExpense,
   deactivateFixedExpense,
-  fetchBudgetPreferences,
   fetchFixedExpenses,
+  fetchMonthlyBudget,
   fetchSpendingLimits,
   saveMonthlyBudget,
   saveSpendingLimits,
@@ -87,7 +87,9 @@ const EMPTY_FIXED: FixedExpenseFormState = {
 export function BudgetSettings() {
   const { user } = useAuth();
   const month = useMemo(() => getArgentinaDateParts().periodMonth, []);
-  const [preferences, setPreferences] = useState<BudgetPreferences | null>(null);
+  const [preferences, setPreferences] = useState<
+    (BudgetPreferences & { openingArsBalance?: number | null }) | null
+  >(null);
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [limits, setLimits] = useState<Record<string, string>>({});
@@ -111,13 +113,16 @@ export function BudgetSettings() {
         const token = await user.getIdToken();
         const [nextPreferences, nextFixed, nextCategories, nextLimits] =
           await Promise.all([
-            fetchBudgetPreferences(token),
+            fetchMonthlyBudget(token, month),
             fetchFixedExpenses(token),
             fetchExpenseCategories(token),
             fetchSpendingLimits(token, month),
           ]);
         if (cancelled) return;
-        setPreferences(nextPreferences);
+        setPreferences({
+          ...nextPreferences.plan,
+          openingArsBalance: nextPreferences.funding.openingArsBalance,
+        });
         setFixedExpenses(nextFixed);
         setCategories(nextCategories);
         setLimits(
@@ -151,7 +156,10 @@ export function BudgetSettings() {
     if (!user) return;
     const token = await user.getIdToken();
     const summary = await saveMonthlyBudget(token, month, value);
-    setPreferences(summary.plan);
+    setPreferences({
+      ...summary.plan,
+      openingArsBalance: summary.funding.openingArsBalance,
+    });
   }
 
   function openFixedDialog(expense?: FixedExpense) {
@@ -280,10 +288,10 @@ export function BudgetSettings() {
 
       <Card id="monthly-plan">
         <CardHeader>
-          <CardTitle>Cómo se calcula tu mes</CardTitle>
+          <CardTitle>Fondos reales del mes</CardTitle>
           <CardDescription>
-            Elegí entre la proyección anterior o fondos ARS efectivamente
-            disponibles.
+            Definí los pesos con los que comenzaste y la reserva que no querés
+            gastar.
           </CardDescription>
         </CardHeader>
         <CardContent>

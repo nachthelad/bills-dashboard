@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { CircleDollarSign, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth-context";
-import { parseAmountInput } from "@/lib/amount-parser";
 import type { IncomeSource, MoneyCurrency } from "@/lib/budget";
 import {
   createIncomeSource,
@@ -12,8 +11,8 @@ import {
   fetchIncomeSources,
   updateIncomeSource,
 } from "@/lib/funding-client";
-import { formatAmount } from "@/lib/format-currency";
 import { Button } from "@/components/ui/button";
+import { AddIncomeModal } from "@/components/income/add-income-modal";
 import {
   Card,
   CardContent,
@@ -39,14 +38,12 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
-type IncomeSourceForm = Omit<IncomeSource, "id" | "expectedAmount"> & {
-  expectedAmount: string;
-};
+type IncomeSourceForm = Omit<IncomeSource, "id">;
 
 const EMPTY_SOURCE: IncomeSourceForm = {
   name: "",
   currency: "USD",
-  expectedAmount: "",
+  expectedAmount: 0,
   isVariable: false,
   isActive: true,
 };
@@ -73,11 +70,7 @@ export function IncomeSourcesSettings() {
 
   function openDialog(source?: IncomeSource) {
     setEditing(source ?? null);
-    setForm(
-      source
-        ? { ...source, expectedAmount: String(source.expectedAmount) }
-        : EMPTY_SOURCE
-    );
+    setForm(source ? { ...source } : EMPTY_SOURCE);
     setError(null);
     setOpen(true);
   }
@@ -88,17 +81,10 @@ export function IncomeSourcesSettings() {
     setSaving(true);
     setError(null);
     try {
-      const expectedAmount = form.expectedAmount.trim()
-        ? parseAmountInput(form.expectedAmount)
-        : 0;
-      if (!Number.isFinite(expectedAmount) || expectedAmount < 0) {
-        throw new Error("Ingresá un monto esperado válido");
-      }
-      const input = { ...form, expectedAmount };
       const token = await user.getIdToken();
       const saved = editing
-        ? await updateIncomeSource(token, editing.id, input)
-        : await createIncomeSource(token, input);
+        ? await updateIncomeSource(token, editing.id, form)
+        : await createIncomeSource(token, form);
       setSources((current) =>
         (editing
           ? current.map((item) => (item.id === saved.id ? saved : item))
@@ -126,9 +112,9 @@ export function IncomeSourcesSettings() {
         <CardHeader>
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
-              <CardTitle>Ingresos esperados</CardTitle>
+              <CardTitle>Fuentes de cobro</CardTitle>
               <CardDescription className="mt-1">
-                Sirven para planificar. Solo un cobro real aumenta tu saldo.
+                Identifican de dónde viene cada cobro y en qué moneda lo recibís.
               </CardDescription>
             </div>
             <Button onClick={() => openDialog()}>
@@ -150,16 +136,24 @@ export function IncomeSourcesSettings() {
                 <div>
                   <p className="font-semibold">{source.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {source.isVariable ? "Variable" : "Mensual"}
+                    {source.currency}
+                    {" · "}
+                    {source.isVariable ? "Variable" : "Recurrente"}
                     {!source.isActive ? " · inactiva" : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="mr-auto font-bold sm:mr-2">
-                    {source.isVariable && source.expectedAmount === 0
-                      ? `${source.currency} variable`
-                      : formatAmount(source.expectedAmount, source.currency)}
-                  </span>
+                  {source.isActive ? (
+                    <AddIncomeModal
+                      presetSource={source}
+                      trigger={
+                        <Button size="sm" variant="outline">
+                          <CircleDollarSign className="size-4" />
+                          Registrar cobro
+                        </Button>
+                      }
+                    />
+                  ) : null}
                   <Button
                     size="icon"
                     variant="ghost"
@@ -190,7 +184,7 @@ export function IncomeSourcesSettings() {
               {editing ? "Editar fuente" : "Agregar fuente"}
             </DialogTitle>
             <DialogDescription>
-              Definí lo esperado sin confundirlo con dinero ya cobrado.
+              Usá esta fuente para vincular cobros reales en Ingresos.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={save} className="space-y-4">
@@ -205,39 +199,21 @@ export function IncomeSourcesSettings() {
                 required
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Moneda</Label>
-                <Select
-                  value={form.currency}
-                  onValueChange={(currency: MoneyCurrency) =>
-                    setForm((current) => ({ ...current, currency }))
-                  }
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ARS">ARS</SelectItem>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="USDT">USDT</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="source-amount">Monto esperado</Label>
-                <Input
-                  id="source-amount"
-                  type="text"
-                  inputMode="decimal"
-                  value={form.expectedAmount}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      expectedAmount: event.target.value,
-                    }))
-                  }
-                  placeholder="0,00"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Moneda de cobro</Label>
+              <Select
+                value={form.currency}
+                onValueChange={(currency: MoneyCurrency) =>
+                  setForm((current) => ({ ...current, currency }))
+                }
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ARS">ARS</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="USDT">USDT</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-center justify-between rounded-xl border p-3">
               <Label htmlFor="source-variable">Ingreso variable</Label>
