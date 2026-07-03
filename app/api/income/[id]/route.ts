@@ -7,6 +7,11 @@ import {
   handleAuthError,
 } from "@/lib/server/authenticate-request";
 import { createRequestLogger } from "@/lib/server/logger";
+import {
+  calculateBalancesFromDocuments,
+  IncomeFundingError,
+  parseMoneyCurrency,
+} from "@/lib/server/income-funding";
 
 type RouteParams = { id: string };
 
@@ -17,22 +22,6 @@ async function resolveParams(
     return await (params as Promise<RouteParams>);
   }
   return params as RouteParams;
-}
-
-async function getOwnedIncomeDoc(uid: string, incomeId: string) {
-  if (!incomeId) {
-    throw new Error("NotFound");
-  }
-  const docRef = getAdminFirestore().collection("incomeEntries").doc(incomeId);
-  const snapshot = await docRef.get();
-  if (!snapshot.exists) {
-    throw new Error("NotFound");
-  }
-  const data = snapshot.data();
-  if (!data || data.userId !== uid) {
-    throw new Error("Forbidden");
-  }
-  return { docRef, snapshot, data };
 }
 
 export async function PATCH(
@@ -49,10 +38,8 @@ export async function PATCH(
     log = log.withContext({ userId: uid });
     const params = await resolveParams(context.params);
     const incomeId = params.id;
-    const { docRef } = await getOwnedIncomeDoc(uid, incomeId);
-
     const body = await request.json();
-    const updates: Record<string, unknown> = {
+    const updates: Record<string, any> = {
       updatedAt: Timestamp.now(),
     };
 
@@ -91,10 +78,60 @@ export async function PATCH(
     }
 
     if (body.currency !== undefined) {
-      updates.currency = ["ARS", "USD"].includes(body.currency) ? body.currency : "ARS";
+      updates.currency = parseMoneyCurrency(body.currency);
+    }
+    if (body.incomeSourceId !== undefined) {
+      updates.incomeSourceId =
+        typeof body.incomeSourceId === "string" && body.incomeSourceId.trim()
+          ? body.incomeSourceId.trim()
+          : null;
     }
 
-    await docRef.update(updates);
+    const db = getAdminFirestore();
+    const docRef = db.collection("incomeEntries").doc(incomeId);
+    await db.runTransaction(async (transaction) => {
+      const existing = await transaction.get(docRef);
+      if (!existing.exists) throw new Error("NotFound");
+      if (existing.data()?.userId !== uid) throw new Error("Forbidden");
+      const incomeQuery = db.collection("incomeEntries").where("userId", "==", uid);
+      const conversionQuery = db
+        .collection("currencyConversions")
+        .where("userId", "==", uid);
+      const [incomeSnapshot, conversionSnapshot] = await Promise.all([
+        transaction.get(incomeQuery),
+        transaction.get(conversionQuery),
+      ]);
+      const balances = calculateBalancesFromDocuments(
+        incomeSnapshot.docs,
+        conversionSnapshot.docs,
+        { excludeIncomeId: incomeId }
+      );
+      const current = existing.data() ?? {};
+      const nextCurrency: "ARS" | "USD" | "USDT" =
+        updates.currency === "ARS" ||
+        updates.currency === "USD" ||
+        updates.currency === "USDT"
+          ? updates.currency
+          : current.currency === "USD" || current.currency === "USDT"
+            ? current.currency
+            : "ARS";
+      const nextAmount =
+        typeof updates.amount === "number"
+          ? updates.amount
+          : typeof current.amount === "number"
+            ? current.amount
+            : 0;
+      if (nextCurrency !== "ARS") {
+        balances.available[nextCurrency] += nextAmount;
+      }
+      if (balances.available.USD < 0 || balances.available.USDT < 0) {
+        throw new IncomeFundingError(
+          400,
+          "El cambio dejaría conversiones sin saldo de origen"
+        );
+      }
+      transaction.update(docRef, updates);
+    });
     const updatedSnapshot = await docRef.get();
     const updatedData = updatedSnapshot.data();
     return NextResponse.json({
@@ -106,6 +143,7 @@ export async function PATCH(
         ? updatedData.date.toDate().toISOString()
         : new Date().toISOString(),
       currency: updatedData?.currency ?? "ARS",
+      incomeSourceId: updatedData?.incomeSourceId ?? null,
     });
   } catch (error: any) {
     const authResponse = handleAuthError(error);
@@ -143,8 +181,33 @@ export async function DELETE(
     log = log.withContext({ userId: uid });
     const params = await resolveParams(context.params);
     const incomeId = params.id;
-    const { docRef } = await getOwnedIncomeDoc(uid, incomeId);
-    await docRef.delete();
+    const db = getAdminFirestore();
+    const docRef = db.collection("incomeEntries").doc(incomeId);
+    await db.runTransaction(async (transaction) => {
+      const existing = await transaction.get(docRef);
+      if (!existing.exists) throw new Error("NotFound");
+      if (existing.data()?.userId !== uid) throw new Error("Forbidden");
+      const incomeQuery = db.collection("incomeEntries").where("userId", "==", uid);
+      const conversionQuery = db
+        .collection("currencyConversions")
+        .where("userId", "==", uid);
+      const [incomeSnapshot, conversionSnapshot] = await Promise.all([
+        transaction.get(incomeQuery),
+        transaction.get(conversionQuery),
+      ]);
+      const balances = calculateBalancesFromDocuments(
+        incomeSnapshot.docs,
+        conversionSnapshot.docs,
+        { excludeIncomeId: incomeId }
+      );
+      if (balances.available.USD < 0 || balances.available.USDT < 0) {
+        throw new IncomeFundingError(
+          400,
+          "No podés eliminar este cobro porque respalda conversiones registradas"
+        );
+      }
+      transaction.delete(docRef);
+    });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     const authResponse = handleAuthError(error);
@@ -158,6 +221,12 @@ export async function DELETE(
       return NextResponse.json(
         { error: "No se encontró el ingreso" },
         { status: 404 }
+      );
+    }
+    if (error instanceof IncomeFundingError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode }
       );
     }
     log.error("Income DELETE error", { error });

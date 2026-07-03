@@ -12,6 +12,7 @@ import {
   toIsoDateTime,
 } from "@/lib/server/document-serializer";
 import { parseAmountInput } from "@/lib/amount-parser";
+import { parseMoneyCurrency } from "@/lib/server/income-funding";
 
 export async function GET(request: NextRequest) {
   const baseLogger = createRequestLogger({
@@ -60,7 +61,11 @@ export async function POST(request: NextRequest) {
     const amount = parseAmountInput(body.amount);
     const source = (body.source ?? "").toString().trim() || "Other";
     const dateString = body.date as string | undefined;
-    const currency = ["ARS", "USD"].includes(body.currency) ? body.currency : "ARS";
+    const currency = parseMoneyCurrency(body.currency ?? "ARS");
+    const incomeSourceId =
+      typeof body.incomeSourceId === "string" && body.incomeSourceId.trim()
+        ? body.incomeSourceId.trim()
+        : null;
 
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ error: "El monto no es válido" }, { status: 400 });
@@ -74,6 +79,7 @@ export async function POST(request: NextRequest) {
         amount,
         source,
         currency,
+        incomeSourceId,
         date: dateString
           ? Timestamp.fromDate(new Date(dateString))
           : Timestamp.now(),
@@ -119,5 +125,7 @@ function serializeIncomeDoc(doc: DocumentSnapshot) {
       typeof raw.currency === "string" && raw.currency.trim().length > 0
         ? raw.currency
         : "ARS",
+    incomeSourceId:
+      typeof raw.incomeSourceId === "string" ? raw.incomeSourceId : null,
   };
 }

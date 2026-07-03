@@ -10,6 +10,10 @@ import {
   handleAuthError,
 } from "@/lib/server/authenticate-request";
 import { createRequestLogger } from "@/lib/server/logger";
+import {
+  DocumentStatusError,
+  parseDocumentProcessingStatus,
+} from "@/lib/server/document-status";
 
 type RouteContext = {
   params: Promise<{ id: string }> | { id: string };
@@ -119,7 +123,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // Ensure Dashboard reflected changes (Dashboard usually uses totalAmount)
       updates.totalAmount = amount ?? null;
     }
-    if (status) updates.status = status;
+    if (status !== undefined && status !== currentData?.status) {
+      updates.status = parseDocumentProcessingStatus(status);
+    }
     const finalCategory =
       category !== undefined ? category || null : currentData?.category || null;
     if (category !== undefined) updates.category = finalCategory;
@@ -215,6 +221,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const authResponse = handleAuthError(error);
     if (authResponse) {
       return authResponse;
+    }
+    if (error instanceof DocumentStatusError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     log.error("Document PATCH error", { error });
     return NextResponse.json(

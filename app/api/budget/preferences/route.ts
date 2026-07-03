@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
         expectedIncome: 0,
         savingsMode: "percentage",
         savingsValue: 20,
+        fundingMode: "planned",
+        arsBufferAmount: 0,
       },
     });
   } catch (error) {

@@ -1,5 +1,4 @@
 import { SettingsForm } from "@/components/settings/settings-form"
-import { BudgetSettings } from "@/components/budget/budget-settings"
 
 export default function SettingsPage() {
   return (
@@ -9,12 +8,11 @@ export default function SettingsPage() {
           Configuración
         </h1>
         <p className="text-muted-foreground max-w-3xl">
-          Definí tu plan de ahorro y administrá las preferencias de la cuenta.
+          Administrá la apariencia, privacidad y preferencias de la cuenta.
         </p>
       </div>
 
       <div className="max-w-4xl space-y-6">
-        <BudgetSettings />
         <SettingsForm />
       </div>
     </div>

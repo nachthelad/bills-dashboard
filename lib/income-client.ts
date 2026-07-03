@@ -6,6 +6,7 @@ export type IncomeEntry = {
   amount: number;
   source: string;
   currency: string;
+  incomeSourceId: string | null;
   date: Date;
 };
 
@@ -30,13 +31,21 @@ export async function fetchIncomeEntries(
     amount: entry.amount ?? 0,
     source: entry.source ?? "Sin fuente",
     currency: entry.currency ?? "ARS",
+    incomeSourceId: entry.incomeSourceId ?? null,
     date: normalizeDateInput(entry.date),
   }));
 }
 
 export async function addIncomeEntry(
   token: string,
-  data: { name: string; amount: number; source: string; currency?: string; date: Date }
+  data: {
+    name: string;
+    amount: number;
+    source: string;
+    currency?: string;
+    incomeSourceId?: string | null;
+    date: Date;
+  }
 ): Promise<IncomeEntry> {
   const response = await fetch("/api/income", {
     method: "POST",
@@ -49,6 +58,7 @@ export async function addIncomeEntry(
       amount: data.amount,
       source: data.source,
       currency: data.currency ?? "ARS",
+      incomeSourceId: data.incomeSourceId ?? null,
       date: data.date.toISOString(),
     }),
   });
@@ -65,6 +75,7 @@ export async function addIncomeEntry(
     amount: entry.amount ?? 0,
     source: entry.source ?? "Sin fuente",
     currency: entry.currency ?? "ARS",
+    incomeSourceId: entry.incomeSourceId ?? null,
     date: normalizeDateInput(entry.date),
   };
 }

@@ -1,13 +1,20 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type React from "react";
 
 import { useProtectedRouteState } from "@/lib/hooks/use-protected-route";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isChecking, isAuthenticated, errorMessage } =
-    useProtectedRouteState();
+  const router = useRouter();
+  const { isChecking, isAuthenticated } = useProtectedRouteState();
+
+  useEffect(() => {
+    if (!isChecking && !isAuthenticated) {
+      router.replace("/auth/login");
+    }
+  }, [isAuthenticated, isChecking, router]);
 
   if (isChecking) {
     return (
@@ -21,11 +28,6 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login if not authenticated
-    // We use window.location.href to ensure a full reload and clear any stale state
-    if (typeof window !== "undefined") {
-      window.location.href = "/auth/login";
-    }
     return null;
   }
 

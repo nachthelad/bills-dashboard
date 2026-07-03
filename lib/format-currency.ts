@@ -11,7 +11,7 @@ export function formatAmount(
       maximumFractionDigits: 0,
     }).format(amount);
   }
-  return `USD ${new Intl.NumberFormat("es-AR", {
+  return `${currency} ${new Intl.NumberFormat("es-AR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount)}`;

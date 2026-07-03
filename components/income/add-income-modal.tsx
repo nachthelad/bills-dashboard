@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { addIncomeEntry } from "@/lib/income-client";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { DatePickerPopover } from "@/components/ui/date-picker-popover";
 import { getLocalTodayIso, isoToDate } from "@/lib/date-picker";
 import { parseAmountInput } from "@/lib/amount-parser";
+import { fetchIncomeSources } from "@/lib/funding-client";
+import type { IncomeSource } from "@/lib/budget";
 
 interface AddIncomeModalProps {
   onSuccess: () => void;
@@ -38,6 +40,7 @@ function createEmptyForm() {
     source: "Salary",
     amount: "",
     currency: "ARS",
+    incomeSourceId: null as string | null,
     date: getLocalTodayIso(),
   };
 }
@@ -49,7 +52,19 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState(createEmptyForm);
+  const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void user.getIdToken().then(fetchIncomeSources).then((sources) => {
+      if (!cancelled) setIncomeSources(sources.filter((source) => source.isActive));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -89,6 +104,7 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
         amount,
         source: formData.source,
         currency: formData.currency,
+        incomeSourceId: formData.incomeSourceId,
         date: parsedDate,
       });
       setOpen(false);
@@ -127,6 +143,35 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
         />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-foreground font-medium">
+            Fuente configurada
+          </Label>
+          <Select
+            value={formData.incomeSourceId ?? "none"}
+            onValueChange={(value) => {
+              const selected = incomeSources.find((source) => source.id === value);
+              setFormData((current) => ({
+                ...current,
+                incomeSourceId: value === "none" ? null : value,
+                name: selected?.name ?? current.name,
+                currency: selected?.currency ?? current.currency,
+              }));
+            }}
+          >
+            <SelectTrigger className="h-11 bg-background sm:h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sin vincular</SelectItem>
+              {incomeSources.map((source) => (
+                <SelectItem key={source.id} value={source.id}>
+                  {source.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="inc-source" className="text-foreground font-medium">
             Fuente
@@ -179,6 +224,7 @@ export function AddIncomeModal({ onSuccess }: AddIncomeModalProps) {
             <SelectContent className="bg-popover border-border text-popover-foreground">
               <SelectItem value="ARS">ARS — Pesos</SelectItem>
               <SelectItem value="USD">USD — Dólar</SelectItem>
+              <SelectItem value="USDT">USDT — Cripto</SelectItem>
             </SelectContent>
           </Select>
         </div>

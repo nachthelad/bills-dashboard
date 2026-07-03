@@ -9,6 +9,7 @@ import {
 import {
   parsePeriodMonth,
   parsePreferencesInput,
+  parseOpeningArsBalance,
   toBudgetErrorResponse,
 } from "@/lib/server/budget-data";
 import { buildMonthlyBudgetSummary } from "@/lib/server/monthly-budget";
@@ -31,14 +32,29 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
     const { uid } = await authenticateRequest(request);
     const month = parsePeriodMonth((await params).month);
-    const input = parsePreferencesInput(await request.json());
+    const body = await request.json();
+    const input = parsePreferencesInput(body);
+    const hasOpeningArsBalance = Object.prototype.hasOwnProperty.call(
+      body,
+      "openingArsBalance"
+    );
+    const openingArsBalance = hasOpeningArsBalance
+      ? parseOpeningArsBalance(body.openingArsBalance)
+      : undefined;
     const now = Timestamp.now();
     await Promise.all([
       getAdminFirestore()
         .collection("monthlyBudgets")
         .doc(`${uid}_${month}`)
         .set(
-          { userId: uid, month, ...input, updatedAt: now, createdAt: now },
+          {
+            userId: uid,
+            month,
+            ...input,
+            ...(hasOpeningArsBalance ? { openingArsBalance } : {}),
+            updatedAt: now,
+            createdAt: now,
+          },
           { merge: true }
         ),
       getAdminFirestore()

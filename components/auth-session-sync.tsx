@@ -37,12 +37,9 @@ export function AuthSessionSync() {
     const syncSession = async (forceRefresh = false) => {
       clearRefreshTimer();
       if (!user) {
-        console.log("AuthSessionSync: No user, clearing cookie");
         clearAuthCookie();
         return;
       }
-
-      console.log("AuthSessionSync: Syncing session for user", user.uid);
 
       try {
         const tokenResult = await user.getIdTokenResult(forceRefresh);

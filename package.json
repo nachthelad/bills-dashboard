@@ -8,6 +8,8 @@
     "lint": "eslint .",
     "start": "next start",
     "seed:providers": "tsx scripts/seed-providers.ts",
+    "seed:personal-budget": "tsx scripts/seed-personal-budget.ts",
+    "migrate:document-status": "tsx scripts/migrate-document-paid-status.ts",
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {

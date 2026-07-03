@@ -6,11 +6,15 @@ import { parseAmountInput } from "../lib/amount-parser";
 test("parseAmountInput recognizes Argentine thousands and decimal separators", () => {
   assert.equal(parseAmountInput("18.160,06"), 18160.06);
   assert.equal(parseAmountInput("18160,06"), 18160.06);
+  assert.equal(parseAmountInput("900.000,2"), 900000.2);
+  assert.equal(parseAmountInput("900000,2"), 900000.2);
   assert.equal(parseAmountInput("$ 18.160,06"), 18160.06);
   assert.equal(parseAmountInput("ARS 18.160,06"), 18160.06);
 });
 
 test("parseAmountInput keeps existing dot-decimal input working", () => {
   assert.equal(parseAmountInput("18160.06"), 18160.06);
+  assert.equal(parseAmountInput("900000.20"), 900000.2);
+  assert.equal(parseAmountInput("900000"), 900000);
   assert.equal(parseAmountInput(18160.06), 18160.06);
 });

@@ -18,7 +18,7 @@ export async function fetchMonthlyBudget(token: string, month: string) {
 export async function saveMonthlyBudget(
   token: string,
   month: string,
-  input: BudgetPreferences
+  input: BudgetPreferences & { openingArsBalance?: number | null }
 ) {
   const data = await budgetRequest<{ summary: MonthlyBudgetSummary }>(
     token,
