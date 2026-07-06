@@ -93,6 +93,15 @@ export type CreditCardPeriodProjection = {
   totals: CurrencyTotals;
 };
 
+export type CreditCardSummary = {
+  card: CreditCard;
+  nextConfirmedCycle: CreditCardCycle | null;
+  nextProjection: CreditCardPeriodProjection | null;
+  confirmedPeriodCount: number;
+  futureChargeCount: number;
+  estimatedNextPeriodArs: number | null;
+};
+
 const PERIOD_MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 export function isValidPeriodMonth(value: string) {
@@ -380,6 +389,67 @@ export function groupInstallmentsByPeriod(
     if (periodDiff !== 0) return periodDiff;
     return a.cardId.localeCompare(b.cardId);
   });
+}
+
+export function buildCreditCardSummaries(
+  cards: CreditCard[],
+  cycles: CreditCardCycle[],
+  projections: CreditCardPeriodProjection[],
+  today: string,
+  rate: number | null
+): CreditCardSummary[] {
+  const currentPeriod = today.slice(0, 7);
+  const cyclesByCard = new Map<string, CreditCardCycle[]>();
+  const projectionsByCard = new Map<string, CreditCardPeriodProjection[]>();
+
+  for (const cycle of cycles) {
+    const cardCycles = cyclesByCard.get(cycle.cardId) ?? [];
+    cardCycles.push(cycle);
+    cyclesByCard.set(cycle.cardId, cardCycles);
+  }
+  for (const projection of projections) {
+    const cardProjections = projectionsByCard.get(projection.cardId) ?? [];
+    cardProjections.push(projection);
+    projectionsByCard.set(projection.cardId, cardProjections);
+  }
+
+  return cards
+    .map((card, index) => {
+      const cardCycles = cyclesByCard.get(card.id) ?? [];
+      const futureProjections = (projectionsByCard.get(card.id) ?? [])
+        .filter((projection) => projection.periodMonth >= currentPeriod)
+        .sort((a, b) => a.periodMonth.localeCompare(b.periodMonth));
+      const nextProjection = futureProjections[0] ?? null;
+      const nextConfirmedCycle =
+        cardCycles
+          .filter((cycle) => cycle.dueDate >= today)
+          .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0] ?? null;
+
+      return {
+        index,
+        summary: {
+          card,
+          nextConfirmedCycle,
+          nextProjection,
+          confirmedPeriodCount: cardCycles.length,
+          futureChargeCount: futureProjections.reduce(
+            (total, projection) => total + projection.installments.length,
+            0
+          ),
+          estimatedNextPeriodArs: nextProjection
+            ? nextProjection.totals.ARS +
+              (rate ? nextProjection.totals.USD * rate : 0)
+            : null,
+        },
+      };
+    })
+    .sort((a, b) => {
+      const statusDiff =
+        Number(a.summary.card.status === "archived") -
+        Number(b.summary.card.status === "archived");
+      return statusDiff || a.index - b.index;
+    })
+    .map(({ summary }) => summary);
 }
 
 export function suggestNextCycle(cycle: CreditCardCycle) {

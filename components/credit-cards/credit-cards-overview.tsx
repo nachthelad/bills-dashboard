@@ -47,6 +47,7 @@ import {
   updateCreditCard,
 } from "@/lib/credit-cards-client";
 import {
+  buildCreditCardSummaries,
   formatPeriodMonth,
   groupInstallmentsByPeriod,
   suggestNextCycle,
@@ -93,22 +94,21 @@ export function CreditCardsOverview() {
   const activeCards = cards.filter((card) => card.status === "active");
   const currentPeriod = toLocalPeriodMonth(new Date());
   const today = toLocalIsoDate(new Date());
-  const cardById = useMemo(
-    () => new Map(cards.map((card) => [card.id, card])),
-    [cards]
-  );
   const projections = useMemo(
     () => groupInstallmentsByPeriod(purchases, cycles, recurringExpenses, today),
     [cycles, purchases, recurringExpenses, today]
   );
-  const upcoming = projections
-    .filter(
-      (projection) =>
-        projection.cycle && projection.cycle.dueDate >= today
-    )
-    .sort((a, b) =>
-      (a.cycle?.dueDate ?? "").localeCompare(b.cycle?.dueDate ?? "")
-    );
+  const cardSummaries = useMemo(
+    () =>
+      buildCreditCardSummaries(
+        cards,
+        cycles,
+        projections,
+        today,
+        rate?.price ?? null
+      ),
+    [cards, cycles, projections, rate?.price, today]
+  );
   const timeline = useMemo(
     () => aggregateTimeline(projections, currentPeriod),
     [currentPeriod, projections]
@@ -261,9 +261,9 @@ export function CreditCardsOverview() {
           <section className="flex flex-col gap-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold">Próximos vencimientos</h2>
+                <h2 className="text-xl font-semibold">Tus tarjetas</h2>
                 <p className="text-sm text-muted-foreground">
-                  Lo que necesitás cubrir, ordenado por fecha.
+                  Abrí una tarjeta para revisar sus meses, cargos y períodos.
                 </p>
               </div>
               <RateStatus
@@ -272,71 +272,95 @@ export function CreditCardsOverview() {
                 onRefresh={refreshRate}
               />
             </div>
-            {upcoming.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
-                  <p>
-                    Todavía no hay vencimientos con compras proyectadas.
-                    Configurá un período y cargá tu primera compra.
-                  </p>
-                  <Button
-                    variant="outline"
-                    className="self-start"
-                    onClick={() => setManagerOpen(true)}
-                  >
-                    Administrar tarjetas
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 lg:grid-cols-2">
-                {upcoming.map((projection) => {
-                  const card = cardById.get(projection.cardId);
-                  const cycle = projection.cycle;
-                  if (!card || !cycle) return null;
-                  return (
-                    <Card key={`${projection.cardId}_${projection.periodMonth}`}>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <CreditCardIcon className="size-4" />
-                          {card.name}
-                        </CardTitle>
-                        <CardDescription>
-                          Cierra {formatDate(cycle.closingDate)} · Vence{" "}
-                          {formatDate(cycle.dueDate)}
-                        </CardDescription>
-                        <CardAction>
-                          <Badge variant="outline">
-                            {formatPeriodMonth(projection.periodMonth)}
-                          </Badge>
-                        </CardAction>
-                      </CardHeader>
-                      <CardContent className="flex flex-col gap-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {cardSummaries.map((summary) => (
+                <Card key={summary.card.id}>
+                  <CardHeader>
+                    <CardTitle className="flex min-w-0 items-center gap-2">
+                      <CreditCardIcon className="size-4 shrink-0" />
+                      <span className="truncate">{summary.card.name}</span>
+                    </CardTitle>
+                    <CardDescription>
+                      {summary.nextConfirmedCycle
+                        ? `Próximo vencimiento: ${formatDate(
+                            summary.nextConfirmedCycle.dueDate
+                          )}`
+                        : summary.confirmedPeriodCount > 0
+                          ? "Sin próximos vencimientos confirmados"
+                          : "Sin períodos confirmados"}
+                    </CardDescription>
+                    <CardAction>
+                      <Badge
+                        variant={
+                          summary.card.status === "active"
+                            ? "secondary"
+                            : "outline"
+                        }
+                      >
+                        {summary.card.status === "active"
+                          ? "Activa"
+                          : "Archivada"}
+                      </Badge>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-4">
+                    {summary.nextProjection ? (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {formatPeriodMonth(
+                            summary.nextProjection.periodMonth
+                          )}{" "}
+                          estimado
+                        </p>
                         <AmountBlock
-                          totals={projection.totals}
+                          totals={summary.nextProjection.totals}
                           rate={rate?.price ?? null}
                           showAmounts={showAmounts}
+                          compact
+                          estimatedArs={summary.estimatedNextPeriodArs}
                         />
-                        <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Sin cargos futuros
+                      </p>
+                    )}
+                    {summary.confirmedPeriodCount > 0 ||
+                    summary.futureChargeCount > 0 ? (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        {summary.confirmedPeriodCount > 0 ? (
                           <span>
-                            {projection.installments.length}{" "}
-                            {projection.installments.length === 1
-                              ? "cargo"
-                              : "cargos"}
+                            {summary.confirmedPeriodCount}{" "}
+                            {summary.confirmedPeriodCount === 1
+                              ? "período confirmado"
+                              : "períodos confirmados"}
                           </span>
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/credit-cards/${card.id}`}>
-                              Ver detalle
-                              <ArrowRight data-icon="inline-end" />
-                            </Link>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+                        ) : null}
+                        {summary.futureChargeCount > 0 ? (
+                          <span>
+                            {summary.futureChargeCount}{" "}
+                            {summary.futureChargeCount === 1
+                              ? "cargo futuro"
+                              : "cargos futuros"}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      asChild
+                    >
+                      <Link href={`/credit-cards/${summary.card.id}`}>
+                        Abrir tarjeta
+                        <ArrowRight data-icon="inline-end" />
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </section>
 
           <section className="flex flex-col gap-4">
@@ -434,45 +458,6 @@ export function CreditCardsOverview() {
             )}
           </section>
 
-          <section className="flex flex-col gap-4">
-            <div>
-              <h2 className="text-xl font-semibold">Tus tarjetas</h2>
-              <p className="text-sm text-muted-foreground">
-                Abrí una tarjeta para revisar compras y períodos.
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {cards.map((card) => (
-                <Card key={card.id}>
-                  <CardHeader>
-                    <CardTitle>{card.name}</CardTitle>
-                    <CardDescription>
-                      {card.status === "archived"
-                        ? "Archivada: conserva historial y cuotas pendientes."
-                        : "Activa para nuevas compras."}
-                    </CardDescription>
-                    <CardAction>
-                      <Badge
-                        variant={
-                          card.status === "active" ? "secondary" : "outline"
-                        }
-                      >
-                        {card.status === "active" ? "Activa" : "Archivada"}
-                      </Badge>
-                    </CardAction>
-                  </CardHeader>
-                  <CardContent>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/credit-cards/${card.id}`}>
-                        Abrir detalle
-                        <ArrowRight data-icon="inline-end" />
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
         </>
       )}
 
@@ -630,13 +615,16 @@ function AmountBlock({
   rate,
   showAmounts,
   compact = false,
+  estimatedArs: estimatedArsOverride,
 }: {
   totals: CurrencyTotals;
   rate: number | null;
   showAmounts: boolean;
   compact?: boolean;
+  estimatedArs?: number | null;
 }) {
-  const estimatedArs = calculateEstimatedArs(totals, rate);
+  const estimatedArs =
+    estimatedArsOverride ?? calculateEstimatedArs(totals, rate);
   return (
     <div className="flex flex-col gap-1">
       <p className={compact ? "text-lg font-semibold" : "text-2xl font-bold"}>
