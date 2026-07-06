@@ -5,6 +5,7 @@ import {
   addMonthsToPeriodMonth,
   buildCreditCardSummaries,
   getFirstPeriodMonthFromPurchaseDate,
+  getLastRecurringOccurrenceDate,
   groupInstallmentsByPeriod,
   getNextRecurringOccurrenceDate,
   getRecurringOccurrenceDate,
@@ -276,6 +277,19 @@ test("next recurring occurrence is strictly after today", () => {
   assert.equal(
     getNextRecurringOccurrenceDate(makeRecurringExpense(), "2026-06-30"),
     "2026-07-30"
+  );
+});
+
+test("last recurring occurrence returns the final visible charge", () => {
+  assert.equal(
+    getLastRecurringOccurrenceDate(
+      makeRecurringExpense({
+        startDate: "2026-05-31",
+        anchorDay: 31,
+        endDate: "2026-07-30",
+      })
+    ),
+    "2026-06-30"
   );
 });
 

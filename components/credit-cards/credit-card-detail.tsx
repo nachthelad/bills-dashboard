@@ -100,7 +100,7 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
     useState<CreditCardRecurringExpense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<
     | { type: "purchase"; id: string }
-    | { type: "recurring"; id: string }
+    | { type: "recurring"; id: string; action: "finish" | "delete" }
     | { type: "cycle"; id: string }
     | null
   >(null);
@@ -120,10 +120,8 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
   const cardRecurringExpenses = recurringExpenses.filter(
     (expense) => expense.cardId === cardId
   );
-  const activeRecurringExpenseIds = new Set(
-    cardRecurringExpenses
-      .filter((expense) => !expense.endDate)
-      .map((expense) => expense.id)
+  const recurringExpenseById = new Map(
+    cardRecurringExpenses.map((expense) => [expense.id, expense])
   );
   const today = getLocalTodayIso();
   const projections = useMemo(
@@ -235,7 +233,13 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
       if (deleteTarget.type === "purchase") {
         await deleteCreditCardPurchase(token, deleteTarget.id);
       } else if (deleteTarget.type === "recurring") {
-        await finishCreditCardRecurringExpense(token, deleteTarget.id);
+        if (deleteTarget.action === "delete") {
+          await finishCreditCardRecurringExpense(token, deleteTarget.id, {
+            permanent: true,
+          });
+        } else {
+          await finishCreditCardRecurringExpense(token, deleteTarget.id);
+        }
       } else {
         await deleteCreditCardCycle(token, deleteTarget.id);
       }
@@ -498,15 +502,26 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
                             className="bg-muted/20 p-0 whitespace-normal"
                           >
                             <div className="divide-y px-4 py-1">
-                              {projection.installments.map((installment) => (
-                                <div
-                                  key={
-                                    installment.kind === "installment"
-                                      ? `${installment.purchaseId}_${installment.installmentNumber}`
-                                      : `${installment.recurringExpenseId}_${installment.purchaseDate}`
-                                  }
-                                  className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                                >
+                              {projection.installments.map((installment) => {
+                                const recurringExpense =
+                                  installment.kind === "recurring"
+                                    ? recurringExpenseById.get(
+                                        installment.recurringExpenseId
+                                      )
+                                    : null;
+                                const canManageInstallment =
+                                  installment.kind === "installment" ||
+                                  Boolean(recurringExpense);
+
+                                return (
+                                  <div
+                                    key={
+                                      installment.kind === "installment"
+                                        ? `${installment.purchaseId}_${installment.installmentNumber}`
+                                        : `${installment.recurringExpenseId}_${installment.purchaseDate}`
+                                    }
+                                    className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                                  >
                                   <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
                                     <span className="shrink-0 text-muted-foreground">
                                       {formatDate(installment.purchaseDate)}
@@ -526,10 +541,7 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
                                         showAmounts
                                       )}
                                     </span>
-                                    {installment.kind === "installment" ||
-                                    activeRecurringExpenseIds.has(
-                                      installment.recurringExpenseId
-                                    ) ? (
+                                    {canManageInstallment ? (
                                       <div className="flex items-center gap-1">
                                         <Button
                                           type="button"
@@ -544,15 +556,8 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
                                             if (
                                               installment.kind === "recurring"
                                             ) {
-                                              const expense =
-                                                cardRecurringExpenses.find(
-                                                  (candidate) =>
-                                                    candidate.id ===
-                                                    installment.recurringExpenseId
-                                                );
-                                              if (!expense) return;
                                               setEditingRecurringExpense(
-                                                expense
+                                                recurringExpense ?? null
                                               );
                                             } else {
                                               const purchase =
@@ -575,21 +580,29 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
                                           size="icon-sm"
                                           aria-label={`${
                                             installment.kind === "recurring"
-                                              ? "Finalizar gasto recurrente"
+                                              ? recurringExpense?.endDate
+                                                ? "Eliminar gasto recurrente"
+                                                : "Finalizar gasto recurrente"
                                               : "Eliminar compra"
                                           } ${installment.purchaseName}`}
-                                          onClick={() =>
+                                          onClick={() => {
+                                            if (
+                                              installment.kind === "recurring"
+                                            ) {
+                                              setDeleteTarget({
+                                                type: "recurring",
+                                                id: installment.recurringExpenseId,
+                                                action: recurringExpense?.endDate
+                                                  ? "delete"
+                                                  : "finish",
+                                              });
+                                              return;
+                                            }
                                             setDeleteTarget({
-                                              type:
-                                                installment.kind === "recurring"
-                                                  ? "recurring"
-                                                  : "purchase",
-                                              id:
-                                                installment.kind === "recurring"
-                                                  ? installment.recurringExpenseId
-                                                  : installment.purchaseId,
-                                            })
-                                          }
+                                              type: "purchase",
+                                              id: installment.purchaseId,
+                                            });
+                                          }}
                                         >
                                           <Trash2 />
                                         </Button>
@@ -597,7 +610,8 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
                                     ) : null}
                                   </div>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -702,7 +716,10 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {deleteTarget?.type === "recurring"
+              {deleteTarget?.type === "recurring" &&
+              deleteTarget.action === "delete"
+                ? "¿Eliminar gasto recurrente?"
+                : deleteTarget?.type === "recurring"
                 ? "¿Finalizar gasto recurrente?"
                 : `¿Eliminar ${
                     deleteTarget?.type === "cycle" ? "período" : "compra"
@@ -711,6 +728,9 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
             <AlertDialogDescription>
               {deleteTarget?.type === "cycle"
                 ? "Las cuotas conservarán su proyección, pero este vencimiento dejará de figurar como confirmado."
+                : deleteTarget?.type === "recurring" &&
+                    deleteTarget.action === "delete"
+                  ? "Se quitará de los meses de la tarjeta. Usá esta opción si fue cargado por error."
                 : deleteTarget?.type === "recurring"
                   ? "Los cobros hasta hoy conservarán su historial y los futuros dejarán de proyectarse."
                 : "La compra dejará de aparecer en todas sus cuotas proyectadas."}
@@ -726,9 +746,12 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
             >
               {deleteLoading
                 ? deleteTarget?.type === "recurring"
-                  ? "Finalizando..."
+                  ? deleteTarget.action === "delete"
+                    ? "Eliminando..."
+                    : "Finalizando..."
                   : "Eliminando..."
-                : deleteTarget?.type === "recurring"
+                : deleteTarget?.type === "recurring" &&
+                    deleteTarget.action === "finish"
                   ? "Finalizar"
                   : "Eliminar"}
             </AlertDialogAction>

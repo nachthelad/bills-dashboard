@@ -187,11 +187,13 @@ export async function updateCreditCardRecurringExpense(
 
 export async function finishCreditCardRecurringExpense(
   token: string,
-  id: string
+  id: string,
+  options: { permanent?: boolean } = {}
 ) {
+  const search = options.permanent ? "?mode=delete" : "";
   await requestJson<void>(
     token,
-    `/api/credit-card-recurring-expenses/${encodeURIComponent(id)}`,
+    `/api/credit-card-recurring-expenses/${encodeURIComponent(id)}${search}`,
     { method: "DELETE" }
   );
 }

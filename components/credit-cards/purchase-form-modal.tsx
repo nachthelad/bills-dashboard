@@ -175,10 +175,12 @@ export function PurchaseFormModal({
       }
       description={
         recurringExpense
-          ? "El cambio se aplicará desde el próximo cobro."
+          ? recurringExpense.endDate
+            ? "Corregí el nombre o monto del último cobro registrado."
+            : "El cambio se aplicará desde el próximo cobro."
           : purchase
-          ? "Editá el total, la fecha de compra y la cantidad de cuotas."
-          : "Registrá una compra o pegá una lista del resumen."
+            ? "Editá el total, la fecha de compra y la cantidad de cuotas."
+            : "Registrá una compra o pegá una lista del resumen."
       }
       contentClassName="sm:max-w-[760px]"
     >

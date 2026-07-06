@@ -255,6 +255,26 @@ export function getNextRecurringOccurrenceDate(
   return null;
 }
 
+export function getLastRecurringOccurrenceDate(
+  expense: Pick<
+    CreditCardRecurringExpense,
+    "startDate" | "anchorDay" | "endDate"
+  >
+) {
+  if (!expense.endDate) return null;
+  let lastOccurrence: string | null = null;
+  for (let monthOffset = 0; monthOffset < 1200; monthOffset += 1) {
+    const occurrenceDate = getRecurringOccurrenceDate(
+      expense.startDate,
+      expense.anchorDay,
+      monthOffset
+    );
+    if (occurrenceDate > expense.endDate) return lastOccurrence;
+    lastOccurrence = occurrenceDate;
+  }
+  return lastOccurrence;
+}
+
 export function projectRecurringExpenseCharges(
   expense: CreditCardRecurringExpense,
   cycles: CreditCardCycle[],
