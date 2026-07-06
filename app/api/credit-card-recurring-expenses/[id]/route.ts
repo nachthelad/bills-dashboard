@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
 
-import { getNextRecurringOccurrenceDate } from "@/lib/credit-card-utils";
+import {
+  getLastRecurringOccurrenceDate,
+  getNextRecurringOccurrenceDate,
+} from "@/lib/credit-card-utils";
 import { getAdminFirestore } from "@/lib/firebase-admin";
 import {
   authenticateRequest,
@@ -33,10 +36,10 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     const { uid } = await authenticateRequest(request);
     const { id } = await params;
     const existing = await getOwnedRecurringExpense(uid, id);
-    const effectiveFrom = getNextRecurringOccurrenceDate(
-      existing,
-      getArgentinaToday()
-    );
+    const today = getArgentinaToday();
+    const effectiveFrom =
+      getNextRecurringOccurrenceDate(existing, today) ??
+      getLastRecurringOccurrenceDate(existing);
     if (!effectiveFrom) {
       throw new CreditCardDataError(400, "El gasto recurrente ya finalizó");
     }
@@ -65,12 +68,22 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     const { uid } = await authenticateRequest(request);
     const { id } = await params;
     const existing = await getOwnedRecurringExpense(uid, id);
-    if (existing.endDate) {
-      throw new CreditCardDataError(400, "El gasto recurrente ya finalizó");
-    }
     const docRef = getAdminFirestore()
       .collection("creditCardRecurringExpenses")
       .doc(id);
+    if (request.nextUrl.searchParams.get("mode") === "delete") {
+      if (!existing.endDate) {
+        throw new CreditCardDataError(
+          400,
+          "Finalizá el gasto recurrente antes de eliminarlo"
+        );
+      }
+      await docRef.delete();
+      return new NextResponse(null, { status: 204 });
+    }
+    if (existing.endDate) {
+      throw new CreditCardDataError(400, "El gasto recurrente ya finalizó");
+    }
     await docRef.update({
       endDate: getArgentinaToday(),
       updatedAt: Timestamp.now(),
