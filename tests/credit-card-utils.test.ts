@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   addMonthsToPeriodMonth,
+  buildCreditCardSummaries,
   getFirstPeriodMonthFromPurchaseDate,
   groupInstallmentsByPeriod,
   getNextRecurringOccurrenceDate,
@@ -12,7 +13,9 @@ import {
   resolveFirstPeriodMonth,
   splitAmountIntoInstallments,
   suggestNextCycle,
+  type CreditCard,
   type CreditCardCycle,
+  type CreditCardPeriodProjection,
   type CreditCardPurchase,
   type CreditCardRecurringExpense,
 } from "../lib/credit-card-utils";
@@ -175,6 +178,74 @@ test("groupInstallmentsByPeriod lists carried installments first and keeps date 
   );
 });
 
+test("buildCreditCardSummaries creates one summary for a card with several projected months", () => {
+  const card = makeCard();
+  const summaries = buildCreditCardSummaries(
+    [card],
+    [],
+    [
+      makeProjection({ periodMonth: "2026-07" }),
+      makeProjection({ periodMonth: "2026-08" }),
+    ],
+    "2026-07-06",
+    null
+  );
+
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0].card.id, card.id);
+  assert.equal(summaries[0].nextProjection?.periodMonth, "2026-07");
+  assert.equal(summaries[0].futureChargeCount, 2);
+});
+
+test("buildCreditCardSummaries selects the next confirmed due date", () => {
+  const summaries = buildCreditCardSummaries(
+    [makeCard()],
+    [
+      makeCycle({ id: "past", dueDate: "2026-07-05" }),
+      makeCycle({ id: "later", dueDate: "2026-08-10" }),
+      makeCycle({ id: "next", dueDate: "2026-07-13" }),
+    ],
+    [],
+    "2026-07-06",
+    null
+  );
+
+  assert.equal(summaries[0].nextConfirmedCycle?.id, "next");
+  assert.equal(summaries[0].confirmedPeriodCount, 3);
+});
+
+test("buildCreditCardSummaries keeps archived cards after active cards", () => {
+  const summaries = buildCreditCardSummaries(
+    [
+      makeCard({ id: "archived-1", status: "archived" }),
+      makeCard({ id: "active-1" }),
+      makeCard({ id: "archived-2", status: "archived" }),
+      makeCard({ id: "active-2" }),
+    ],
+    [],
+    [],
+    "2026-07-06",
+    null
+  );
+
+  assert.deepEqual(
+    summaries.map(({ card }) => card.id),
+    ["active-1", "active-2", "archived-1", "archived-2"]
+  );
+});
+
+test("buildCreditCardSummaries estimates USD in ARS when a rate exists", () => {
+  const summaries = buildCreditCardSummaries(
+    [makeCard()],
+    [],
+    [makeProjection({ totals: { ARS: 1000, USD: 10 } })],
+    "2026-07-06",
+    1500
+  );
+
+  assert.equal(summaries[0].estimatedNextPeriodArs, 16000);
+});
+
 test("suggestNextCycle clamps dates for shorter months", () => {
   assert.deepEqual(
     suggestNextCycle(
@@ -295,6 +366,41 @@ function makePurchase(
     currency: "ARS",
     installments: 1,
     firstPeriodMonth: "2026-06",
+    ...overrides,
+  };
+}
+
+function makeCard(overrides: Partial<CreditCard> = {}): CreditCard {
+  return {
+    id: "visa",
+    name: "Visa",
+    status: "active",
+    ...overrides,
+  };
+}
+
+function makeProjection(
+  overrides: Partial<CreditCardPeriodProjection> = {}
+): CreditCardPeriodProjection {
+  return {
+    cardId: "visa",
+    periodMonth: "2026-07",
+    cycle: null,
+    installments: [
+      {
+        kind: "installment",
+        purchaseId: "purchase",
+        purchaseName: "Compra",
+        purchaseDate: "2026-06-01",
+        cardId: "visa",
+        periodMonth: "2026-07",
+        installmentNumber: 1,
+        installmentCount: 1,
+        amount: 100,
+        currency: "ARS",
+      },
+    ],
+    totals: { ARS: 100, USD: 0 },
     ...overrides,
   };
 }

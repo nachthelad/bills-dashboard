@@ -337,7 +337,7 @@ export function CreditCardDetail({ cardId }: { cardId: string }) {
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Cuotas proyectadas</h2>
+            <h2 className="text-xl font-semibold">Meses de la tarjeta</h2>
             <p className="text-sm text-muted-foreground">
               Incluye cuotas y gastos recurrentes; los meses sin vencimiento
               siguen visibles como proyección.
