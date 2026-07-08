@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
   Check,
   Gauge,
   Pencil,
@@ -13,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth-context";
+import { parseAmountInput } from "@/lib/amount-parser";
 import {
   fetchMonthlyBudget,
   saveMonthlyBudget,
@@ -77,13 +80,17 @@ const STATUS_COPY = {
 export function MonthlyBudgetDashboard() {
   const { user } = useAuth();
   const { showAmounts } = useAmountVisibility();
-  const month = useMemo(() => getArgentinaDateParts().periodMonth, []);
+  const currentMonth = useMemo(() => getArgentinaDateParts().periodMonth, []);
+  const [month, setMonth] = useState(currentMonth);
   const [summary, setSummary] = useState<MonthlyBudgetSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [payingExpense, setPayingExpense] =
     useState<FixedExpenseSummary | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<"pending" | "paid">(
+    "paid"
+  );
   const [paidAmount, setPaidAmount] = useState("");
   const [savingPayment, setSavingPayment] = useState(false);
 
@@ -120,14 +127,14 @@ export function MonthlyBudgetDashboard() {
 
   async function savePayment() {
     if (!user || !payingExpense) return;
-    const actualAmount = Number(paidAmount);
+    const actualAmount = parseAmountInput(paidAmount);
     if (!Number.isFinite(actualAmount) || actualAmount < 0) return;
     setSavingPayment(true);
     try {
       const token = await user.getIdToken();
       setSummary(
         await updateFixedExpensePeriod(token, payingExpense.id, month, {
-          status: "paid",
+          status: paymentStatus,
           actualAmount,
           sourceType: "manual",
         })
@@ -167,6 +174,11 @@ export function MonthlyBudgetDashboard() {
   ) {
     return (
       <div className="mx-auto max-w-3xl space-y-8 py-6">
+        <MonthSwitcher
+          month={month}
+          currentMonth={currentMonth}
+          onChange={setMonth}
+        />
         <div className="space-y-3">
           <Badge variant="outline" className="gap-2">
             <Sparkles className="size-3" /> Nueva forma de usar Tolva
@@ -216,9 +228,16 @@ export function MonthlyBudgetDashboard() {
             <AmountVisibilityToggle />
           </div>
         </div>
-        <Button variant="outline" onClick={() => setPlanOpen(true)}>
-          <Pencil className="size-4" /> Editar plan
-        </Button>
+        <div className="flex flex-col gap-2 sm:items-end">
+          <MonthSwitcher
+            month={month}
+            currentMonth={currentMonth}
+            onChange={setMonth}
+          />
+          <Button variant="outline" onClick={() => setPlanOpen(true)}>
+            <Pencil className="size-4" /> Editar plan
+          </Button>
+        </div>
       </header>
 
       <section className="relative overflow-hidden rounded-[1.75rem] bg-slate-950 p-6 text-white shadow-2xl shadow-slate-950/15 sm:p-8">
@@ -498,18 +517,32 @@ export function MonthlyBudgetDashboard() {
                         showAmounts
                       )}
                     </span>
-                    {expense.status === "pending" ? (
+                    <div className="flex shrink-0 items-center gap-2">
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => {
                           setPaidAmount(String(expense.budgetedAmount));
+                          setPaymentStatus(expense.status);
                           setPayingExpense(expense);
                         }}
                       >
-                        Marcar pagado
+                        Editar
                       </Button>
-                    ) : null}
+                      {expense.status === "pending" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setPaidAmount(String(expense.budgetedAmount));
+                            setPaymentStatus("paid");
+                            setPayingExpense(expense);
+                          }}
+                        >
+                          Marcar pagado
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))
@@ -546,14 +579,21 @@ export function MonthlyBudgetDashboard() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registrar pago</DialogTitle>
+            <DialogTitle>
+              {paymentStatus === "paid"
+                ? "Registrar pago"
+                : "Actualizar importe del mes"}
+            </DialogTitle>
             <DialogDescription>
-              El importe real reemplazará la estimación de{" "}
-              {payingExpense?.name}.
+              {paymentStatus === "paid"
+                ? `El importe real reemplazará la estimación de ${payingExpense?.name}.`
+                : `El importe queda cargado para ${payingExpense?.name} sin marcarlo pagado.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="paid-amount">Importe pagado</Label>
+            <Label htmlFor="paid-amount">
+              {paymentStatus === "paid" ? "Importe pagado" : "Importe del mes"}
+            </Label>
             <Input
               id="paid-amount"
               inputMode="decimal"
@@ -561,8 +601,26 @@ export function MonthlyBudgetDashboard() {
               onChange={(event) => setPaidAmount(event.target.value)}
             />
           </div>
+          {payingExpense?.status === "pending" ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={paymentStatus === "pending" ? "default" : "outline"}
+                onClick={() => setPaymentStatus("pending")}
+              >
+                Solo cargar importe
+              </Button>
+              <Button
+                type="button"
+                variant={paymentStatus === "paid" ? "default" : "outline"}
+                onClick={() => setPaymentStatus("paid")}
+              >
+                Marcar pagado
+              </Button>
+            </div>
+          ) : null}
           <Button onClick={() => void savePayment()} disabled={savingPayment}>
-            {savingPayment ? "Guardando…" : "Confirmar pago"}
+            {savingPayment ? "Guardando…" : "Guardar importe"}
           </Button>
         </DialogContent>
       </Dialog>
@@ -623,6 +681,51 @@ function EmptyLine({ text, href }: { text: string; href: string }) {
   );
 }
 
+function MonthSwitcher({
+  month,
+  currentMonth,
+  onChange,
+}: {
+  month: string;
+  currentMonth: string;
+  onChange: (month: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        size="icon"
+        variant="outline"
+        aria-label="Mes anterior"
+        onClick={() => onChange(getPreviousPeriodMonth(month))}
+      >
+        <ChevronLeft className="size-4" />
+      </Button>
+      <div className="min-w-40 rounded-md border px-3 py-2 text-center text-sm font-semibold">
+        {formatMonth(month)}
+      </div>
+      <Button
+        type="button"
+        size="icon"
+        variant="outline"
+        aria-label="Mes siguiente"
+        onClick={() => onChange(getNextPeriodMonth(month))}
+      >
+        <ChevronRight className="size-4" />
+      </Button>
+      {month !== currentMonth ? (
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => onChange(currentMonth)}
+        >
+          Mes actual
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 function formatMonth(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
   const label = new Intl.DateTimeFormat("es-AR", {
@@ -631,4 +734,16 @@ function formatMonth(month: string) {
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, monthNumber - 1, 1)));
   return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function getNextPeriodMonth(periodMonth: string) {
+  const [year, month] = periodMonth.split("-").map(Number);
+  const next = new Date(Date.UTC(year, month, 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function getPreviousPeriodMonth(periodMonth: string) {
+  const [year, month] = periodMonth.split("-").map(Number);
+  const previous = new Date(Date.UTC(year, month - 2, 1));
+  return `${previous.getUTCFullYear()}-${String(previous.getUTCMonth() + 1).padStart(2, "0")}`;
 }

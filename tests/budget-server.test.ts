@@ -98,6 +98,19 @@ test("fixed expenses validate due day and preserve source configuration", () => 
       sourceKey: "telecentro",
     }
   );
+  assert.equal(
+    parseFixedExpenseInput(
+      {
+        name: "Agua",
+        category: "Servicios",
+        estimatedAmount: 20_000,
+        sourceType: "document",
+        sourceKey: null,
+      },
+      "2026-07"
+    ).sourceKey,
+    null
+  );
   assert.throws(
     () =>
       parseFixedExpenseInput(
@@ -162,6 +175,22 @@ test("paid fixed periods require the real amount", () => {
       actualAmount: 12_500,
       sourceType: "expense",
       sourceId: "expense-1",
+    }
+  );
+});
+
+test("fixed periods accept Argentine amounts for monthly overrides", () => {
+  assert.deepEqual(
+    parseFixedExpensePeriodInput({
+      status: "pending",
+      actualAmount: "86.500,20",
+      sourceType: "manual",
+    }),
+    {
+      status: "pending",
+      actualAmount: 86_500.2,
+      sourceType: "manual",
+      sourceId: null,
     }
   );
 });

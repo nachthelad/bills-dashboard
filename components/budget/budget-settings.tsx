@@ -31,6 +31,7 @@ import {
   type FixedExpense,
   type SpendingLimit,
 } from "@/lib/budget";
+import { PROVIDER_HINTS } from "@/config/billing/providerHints";
 import { formatAmount } from "@/lib/format-currency";
 import { BudgetPlanForm } from "@/components/budget/budget-plan-form";
 import { IncomeSourcesSettings } from "@/components/income/income-sources-settings";
@@ -83,6 +84,13 @@ const EMPTY_FIXED: FixedExpenseFormState = {
   sourceType: "manual" as const,
   sourceKey: null,
 };
+const AUTO_PROVIDER_VALUE = "__auto__";
+const DOCUMENT_PROVIDER_OPTIONS = PROVIDER_HINTS.filter(
+  (provider) =>
+    !provider.providerId.startsWith("generic_") &&
+    provider.category !== "credit_card" &&
+    provider.category !== "hoa"
+).sort((a, b) => a.providerName.localeCompare(b.providerName, "es"));
 
 export function BudgetSettings() {
   const { user } = useAuth();
@@ -515,7 +523,13 @@ export function BudgetSettings() {
                     setFixedForm((current) => ({
                       ...current,
                       sourceType,
-                      sourceKey: sourceType === "manual" ? null : current.sourceKey,
+                      sourceKey:
+                        sourceType === "manual"
+                          ? null
+                          : sourceType === "document" &&
+                              current.sourceType !== "document"
+                            ? null
+                            : current.sourceKey,
                     }))
                   }
                 >
@@ -529,12 +543,55 @@ export function BudgetSettings() {
                   </SelectContent>
                 </Select>
               </div>
-              {fixedForm.sourceType !== "manual" ? (
+              {fixedForm.sourceType === "document" ? (
+                <div className="space-y-2">
+                  <Label>Proveedor de la boleta</Label>
+                  <Select
+                    value={fixedForm.sourceKey ?? AUTO_PROVIDER_VALUE}
+                    onValueChange={(sourceKey) =>
+                      setFixedForm((current) => ({
+                        ...current,
+                        sourceKey:
+                          sourceKey === AUTO_PROVIDER_VALUE
+                            ? null
+                            : sourceKey,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={AUTO_PROVIDER_VALUE}>
+                        Detectar automáticamente
+                      </SelectItem>
+                      {fixedForm.sourceKey &&
+                      !DOCUMENT_PROVIDER_OPTIONS.some(
+                        (provider) => provider.providerId === fixedForm.sourceKey
+                      ) ? (
+                        <SelectItem value={fixedForm.sourceKey}>
+                          {fixedForm.sourceKey}
+                        </SelectItem>
+                      ) : null}
+                      {DOCUMENT_PROVIDER_OPTIONS.map((provider) => (
+                        <SelectItem
+                          key={provider.providerId}
+                          value={provider.providerId}
+                        >
+                          {provider.providerName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    En automático usa el nombre y la categoría del gasto fijo
+                    para vincular la boleta.
+                  </p>
+                </div>
+              ) : fixedForm.sourceType === "hoa" ? (
                 <div className="space-y-2">
                   <Label htmlFor="fixed-source-key">
-                    {fixedForm.sourceType === "document"
-                      ? "Código del proveedor"
-                      : "Edificio o unidad (opcional)"}
+                    Edificio o unidad (opcional)
                   </Label>
                   <Input
                     id="fixed-source-key"
@@ -545,12 +602,7 @@ export function BudgetSettings() {
                         sourceKey: event.target.value || null,
                       }))
                     }
-                    placeholder={
-                      fixedForm.sourceType === "document"
-                        ? "telecentro"
-                        : "EDIFICIO"
-                    }
-                    required={fixedForm.sourceType === "document"}
+                    placeholder="EDIFICIO"
                   />
                 </div>
               ) : null}
