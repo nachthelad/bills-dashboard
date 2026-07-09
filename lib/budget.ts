@@ -1,5 +1,8 @@
+import { PROVIDER_HINTS } from "@/config/billing/providerHints";
+
 export const BUDGET_TIME_ZONE = "America/Argentina/Buenos_Aires";
 export const PERIOD_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const BROAD_PROVIDER_CATEGORIES = new Set(["credit_card", "hoa", "other"]);
 
 export type SavingsMode = "fixed" | "percentage";
 export type FundingMode = "planned" | "cash";
@@ -370,6 +373,24 @@ export function resolveFixedExpenseAmount(
     : expense.estimatedAmount;
 }
 
+export function fixedExpenseSourceMatches(
+  sourceKey: string | null | undefined | Array<string | null | undefined>,
+  values: Array<string | null | undefined>
+) {
+  const normalizedSources = (Array.isArray(sourceKey) ? sourceKey : [sourceKey])
+    .map(normalizeFixedExpenseSource)
+    .filter((source): source is FixedExpenseSourceMatch => source !== null);
+  const normalizedValues = values
+    .map(normalizeFixedExpenseSource)
+    .filter((value): value is FixedExpenseSourceMatch => value !== null);
+
+  return normalizedSources.some((source) =>
+    normalizedValues.some((value) =>
+      fixedExpenseSourceValueMatches(source, value)
+    )
+  );
+}
+
 export function getNextPeriodMonth(periodMonth: string) {
   if (!PERIOD_MONTH_RE.test(periodMonth)) {
     throw new Error("El mes no es válido");
@@ -377,6 +398,89 @@ export function getNextPeriodMonth(periodMonth: string) {
   const [year, month] = periodMonth.split("-").map(Number);
   const next = new Date(Date.UTC(year, month, 1));
   return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+type FixedExpenseSourceMatch = {
+  text: string;
+  compact: string;
+  category: string | null;
+};
+
+function fixedExpenseSourceValueMatches(
+  source: FixedExpenseSourceMatch,
+  value: FixedExpenseSourceMatch
+) {
+  if (
+    source.text === value.text ||
+    source.compact === value.compact ||
+    value.text.includes(source.text) ||
+    source.text.includes(value.text) ||
+    value.compact.includes(source.compact) ||
+    source.compact.includes(value.compact)
+  ) {
+    return true;
+  }
+
+  return (
+    source.category !== null &&
+    source.category === value.category &&
+    !BROAD_PROVIDER_CATEGORIES.has(source.category)
+  );
+}
+
+function normalizeFixedExpenseSource(
+  value: string | null | undefined
+): FixedExpenseSourceMatch | null {
+  const text = value
+    ?.trim()
+    .toLocaleLowerCase("es")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (!text) return null;
+  return {
+    text,
+    compact: text.replace(/[^a-z0-9]/g, ""),
+    category: inferFixedExpenseProviderCategory(text),
+  };
+}
+
+function inferFixedExpenseProviderCategory(text: string) {
+  const compact = text.replace(/[^a-z0-9]/g, "");
+  for (const hint of PROVIDER_HINTS) {
+    if (hint.category === text || hint.category === compact) {
+      return hint.category;
+    }
+    const searchable = [
+      hint.providerId,
+      hint.providerName,
+      hint.category,
+      ...hint.keywords,
+    ].map((value) => {
+      const normalized = value
+        .trim()
+        .toLocaleLowerCase("es")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      return {
+        text: normalized,
+        compact: normalized.replace(/[^a-z0-9]/g, ""),
+      };
+    });
+    if (
+      searchable.some(
+        (candidate) =>
+          candidate.text === text ||
+          candidate.compact === compact ||
+          candidate.text.includes(text) ||
+          text.includes(candidate.text) ||
+          candidate.compact.includes(compact) ||
+          compact.includes(candidate.compact)
+      )
+    ) {
+      return hint.category;
+    }
+  }
+  return null;
 }
 
 export function getLimitSummary(

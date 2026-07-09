@@ -5,6 +5,7 @@ import {
   calculateCashFunding,
   calculateDirectArsIncome,
   calculateForeignBalances,
+  fixedExpenseSourceMatches,
   getLimitSummary,
   getMonthTiming,
   getNextPeriodMonth,
@@ -109,25 +110,29 @@ export async function buildMonthlyBudgetSummary(
     .map(serializeFixedExpense)
     .filter((expense) => isFixedExpenseActive(expense, month))
     .map((expense) => {
-      const period =
-        periods.get(expense.id) ??
-        resolveImportedFixedPeriod(
+      const savedPeriod = periods.get(expense.id);
+      const importedPeriod = savedPeriod
+        ? null
+        : resolveImportedFixedPeriod(
           expense,
           month,
           documentsSnapshot.docs,
           hoaSnapshot.docs
         );
+      const period = savedPeriod ?? importedPeriod;
       const budgetedAmount = resolveFixedExpenseAmount(expense, period);
+      const dueDay = importedPeriod?.dueDay ?? expense.dueDay;
       return {
         ...expense,
         status: period?.status ?? ("pending" as const),
         actualAmount: period?.actualAmount ?? null,
         budgetedAmount,
+        dueDay,
         overdue:
           (period?.status ?? "pending") === "pending" &&
-          expense.dueDay !== null &&
+          dueDay !== null &&
           month <= getArgentinaPeriod(now) &&
-          timing.currentDay > expense.dueDay,
+          timing.currentDay > dueDay,
       };
     });
   const fixedCommitted = sum(fixedExpenses.map((item) => item.budgetedAmount));
@@ -418,23 +423,26 @@ function resolveImportedFixedPeriod(
   documents: QueryDocumentSnapshot[],
   hoaSummaries: QueryDocumentSnapshot[]
 ) {
-  if (expense.sourceType === "document" && expense.sourceKey) {
+  if (expense.sourceType === "document") {
     const match = documents.find((document) => {
       const raw = document.data();
-      const providerKey =
-        typeof raw.providerId === "string"
-          ? raw.providerId
-          : typeof raw.provider === "string"
-            ? raw.provider
-            : "";
+      const dueDate = toDate(raw.dueDate);
       const date =
+        dueDate ??
         toDate(raw.periodStart) ??
         toDate(raw.issueDate) ??
-        toDate(raw.dueDate) ??
         toDate(raw.uploadedAt);
       return (
-        providerKey.toLocaleLowerCase("es") ===
-          expense.sourceKey?.toLocaleLowerCase("es") &&
+        fixedExpenseSourceMatches(
+          [expense.sourceKey, expense.name, expense.category],
+          [
+            raw.providerId,
+            raw.provider,
+            raw.providerNameDetected,
+            raw.category,
+            raw.fileName,
+          ]
+        ) &&
         date !== null &&
         getArgentinaPeriod(date) === month &&
         ["parsed", "needs_review", "paid"].includes(String(raw.status))
@@ -442,6 +450,7 @@ function resolveImportedFixedPeriod(
     });
     if (match) {
       const raw = match.data();
+      const dueDate = toDate(raw.dueDate);
       const actualAmount = numberOrZero(raw.amount ?? raw.totalAmount);
       if (actualAmount > 0) {
         return {
@@ -449,6 +458,7 @@ function resolveImportedFixedPeriod(
           month,
           status: "pending" as const,
           actualAmount,
+          dueDay: dueDate?.getUTCDate() ?? null,
           sourceType: "document" as const,
           sourceId: match.id,
         };

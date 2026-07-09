@@ -8,6 +8,7 @@ import {
   calculateForeignBalances,
   calculateSavingsAmount,
   dedupeSpendingLimits,
+  fixedExpenseSourceMatches,
   getLimitSummary,
   getMonthTiming,
   isFixedExpenseActive,
@@ -97,6 +98,48 @@ test("a detected invoice amount replaces the estimate without marking it paid", 
       { status: "pending", actualAmount: 12_500 }
     ),
     12_500
+  );
+});
+
+test("fixed expense document sources match normalized provider values", () => {
+  assert.equal(
+    fixedExpenseSourceMatches("Swiss Medical", [
+      "swiss_medical",
+      "Swiss Medical Group",
+    ]),
+    true
+  );
+  assert.equal(
+    fixedExpenseSourceMatches("abl", ["abl_agip", "ABL / Inmobiliario"]),
+    true
+  );
+  assert.equal(
+    fixedExpenseSourceMatches("telecentro", ["Edesur", "Factura luz"]),
+    false
+  );
+  assert.equal(
+    fixedExpenseSourceMatches(["Agua", null, "Servicios"], [
+      "aysa",
+      "AySA",
+      "water",
+    ]),
+    true
+  );
+  assert.equal(
+    fixedExpenseSourceMatches(["Luz", null, "Servicios"], [
+      "edesur",
+      "Edesur",
+      "electricity",
+    ]),
+    true
+  );
+  assert.equal(
+    fixedExpenseSourceMatches(["Prepaga", null, "Servicios"], [
+      "swiss_medical",
+      "Swiss Medical",
+      "health",
+    ]),
+    true
   );
 });
 
