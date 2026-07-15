@@ -65,9 +65,9 @@ const STATUS_COPY = {
     className: "bg-rose-400 text-rose-950",
   },
   unfunded: {
-    label: "Falta cubrir",
+    label: "Diferencia contra el plan",
     description:
-      "Todavía faltan cobros o conversiones para cubrir todo el mes.",
+      "Los fondos registrados todavía no alcanzan el plan completo; no indica una deuda pendiente.",
     className: "bg-sky-300 text-sky-950",
   },
   incomplete: {
@@ -215,6 +215,10 @@ export function MonthlyBudgetDashboard() {
   }
 
   const status = STATUS_COPY[summary.status];
+  const variableCoverage = summary.limits.reduce(
+    (total, limit) => total + Math.max(limit.limitAmount, limit.spentAmount),
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -322,7 +326,7 @@ export function MonthlyBudgetDashboard() {
         </div>
       </section>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden bg-muted">
         <CardHeader className="sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
@@ -330,7 +334,7 @@ export function MonthlyBudgetDashboard() {
               Fondos del mes
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Cobros reales, conversiones y cobertura en pesos.
+              Saldos acumulados y fondos registrados frente al plan completo.
             </p>
           </div>
           <div className="flex gap-2">
@@ -344,15 +348,15 @@ export function MonthlyBudgetDashboard() {
         </CardHeader>
         <CardContent className="grid gap-4 pt-6 md:grid-cols-4">
           <FundingMetric
-            label="Cobrado"
+            label="Cobros acumulados"
             value={`USD ${summary.funding.foreignReceived.USD.toLocaleString("es-AR")} · USDT ${summary.funding.foreignReceived.USDT.toLocaleString("es-AR")}`}
           />
           <FundingMetric
-            label="Sin convertir"
+            label="Saldo sin convertir"
             value={`USD ${summary.funding.foreignAvailable.USD.toLocaleString("es-AR")} · USDT ${summary.funding.foreignAvailable.USDT.toLocaleString("es-AR")}`}
           />
           <FundingMetric
-            label="Convertido a ARS"
+            label="Convertido en el mes"
             value={formatAmount(
               summary.funding.convertedArs,
               "ARS",
@@ -360,7 +364,7 @@ export function MonthlyBudgetDashboard() {
             )}
           />
           <FundingMetric
-            label="Falta cubrir"
+            label="Diferencia contra el plan"
             value={formatAmount(
               summary.funding.conversionNeededArs,
               "ARS",
@@ -371,7 +375,7 @@ export function MonthlyBudgetDashboard() {
         </CardContent>
         <div className="border-t px-6 py-4">
           <div className="mb-2 flex items-center justify-between gap-4 text-xs">
-            <span className="font-semibold">Cobertura mensual</span>
+            <span className="font-semibold">Plan mensual cubierto</span>
             <span className="text-muted-foreground">
               {formatAmount(summary.funding.fundedArs, "ARS", showAmounts)} de{" "}
               {formatAmount(
@@ -393,6 +397,33 @@ export function MonthlyBudgetDashboard() {
                 : 100
             }
           />
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <CoverageMetric
+              label="Gastos fijos"
+              value={summary.amounts.fixedCommitted}
+              show={showAmounts}
+            />
+            <CoverageMetric
+              label="Tarjetas del mes"
+              value={summary.amounts.cardCommitted}
+              show={showAmounts}
+            />
+            <CoverageMetric
+              label="Límites variables"
+              value={variableCoverage}
+              show={showAmounts}
+            />
+            <CoverageMetric
+              label="Colchón"
+              value={summary.plan.arsBufferAmount}
+              show={showAmounts}
+            />
+          </div>
+          <p className="mt-4 rounded-xl border bg-background/60 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+            Es el plan completo del mes, no una deuda pendiente. Incluye fijos
+            y tarjetas aunque ya estén pagados, más los límites variables y el
+            colchón.
+          </p>
         </div>
       </Card>
 
@@ -665,6 +696,27 @@ function FundingMetric({
       </p>
       <p className={cn("mt-1 text-sm font-bold", accent && "text-amber-600")}>
         {value}
+      </p>
+    </div>
+  );
+}
+
+function CoverageMetric({
+  label,
+  value,
+  show,
+}: {
+  label: string;
+  value: number;
+  show: boolean;
+}) {
+  return (
+    <div className="rounded-xl border bg-background/60 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-bold">
+        {formatAmount(value, "ARS", show)}
       </p>
     </div>
   );
